@@ -4,19 +4,29 @@ pub struct Node {
     k: Vec<Key>,
     c: Vec<Node>,
     leaf: bool,
+    root: bool,
     // data: ...,
 }
 
 impl Node {
 
-    pub fn new(t: usize) -> Node {
+    pub fn new_root(t: usize, leaf: bool) -> Node {
         Node {
             t,
             n: 0,
             k: Vec::with_capacity(t),
-            c: Vec::with_capacity(t + 1),
-            leaf: false,
+            c: match leaf { true  => Vec::new(),
+                            false => Vec::with_capacity(t + 1), },
+            leaf,
+            root: true,
         }
+    }
+
+    pub fn set_root_child_and_split(new: &mut Node, mut old: Node) {
+        assert!(new.root, "Illegal set of old root on non-root node.");
+        new.c[0] = old;
+        old.root = false;
+        new.split_child(0);
     }
 
     pub fn search(&self, key: &Key) -> Option<(&Node, usize)> {
@@ -35,8 +45,29 @@ impl Node {
         }
     }
 
-    fn is_full(&self) -> bool {
+    pub fn is_full(&self) -> bool {
         self.n >= 2 * self.t - 1
+    }
+
+    pub fn insert_nonfull(&mut self, k: Key) -> Result<(), &'static str> {
+        match self.k.binary_search(&k) {
+            Ok(_)  => Err("Attempting to insert duplicate key."),
+            Err(i) => {
+                if self.leaf {
+                    self.k.insert(i, k);
+                    Ok(())
+                } else {
+                    let mut i = i + 1;
+                    if self.c[i].is_full() {
+                        self.split_child(i);
+                        if k > self.k[i] {
+                            i += 1;
+                        }
+                    }
+                    self.c[i].insert_nonfull(k)
+                }
+            },
+        }
     }
 
     fn split_child(&mut self, i: usize) {
@@ -50,6 +81,7 @@ impl Node {
             k: new_k,
             c: new_c,
             leaf: self.c[i].leaf,
+            root: false,
         };
 
         self.c.insert(i + 1, new_child);
@@ -72,6 +104,6 @@ impl Node {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Key(pub u32);
 
