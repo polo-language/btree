@@ -1,3 +1,7 @@
+use std::fmt;
+
+static mut ID: u32 = 0;
+
 pub struct Node {
     t: usize,
     n: usize,
@@ -5,11 +9,19 @@ pub struct Node {
     c: Vec<Node>,
     leaf: bool,
     root: bool,
+    id: u32,
     // data: ...,
 }
 
-impl Node {
+fn next_id() -> u32 {
+    unsafe {
+        let current = ID;
+        ID += 1;
+        current
+    }
+}
 
+impl Node {
     pub fn new_root(t: usize, leaf: bool) -> Node {
         Node {
             t,
@@ -19,6 +31,7 @@ impl Node {
                             false => Vec::with_capacity(t + 1), },
             leaf,
             root: true,
+            id: next_id(),
         }
     }
 
@@ -29,12 +42,19 @@ impl Node {
         new.split_child(0);
     }
 
+    pub fn is_empty_root(&self) -> bool {
+        assert!(self.root, "Should not be checking if a non-root node is empty.");
+        self.n == 0
+    }
+
     pub fn search(&self, key: &Key) -> Option<(&Node, usize)> {
         let mut i = 0;
-        while i <= self.n && key >= &self.k[i] {
+        debug!("Searching node {:?} for key {:?}", self, key);
+        while i < self.n && key > &self.k[i] {
             i += 1;
         }
-        if i <= self.n && key == &self.k[i] {
+        if i < self.n && key == &self.k[i] {
+            debug!("Search - found key {:?} at node {}", key, self.id);
             Some((&self, i))
         } else {
             if self.leaf {
@@ -55,6 +75,8 @@ impl Node {
             Err(i) => {
                 if self.leaf {
                     self.k.insert(i, k);
+                    self.n += 1;
+                    debug!("Inserted {:?} into leaf {:?}", k, self);
                     Ok(())
                 } else {
                     let mut i = i + 1;
@@ -73,6 +95,7 @@ impl Node {
     fn split_child(&mut self, i: usize) {
         assert!(!self.leaf, "Cannot split child of a leaf");
         assert!(!self.is_full(), "Can not split child of full parent.");
+        debug!("Splitting child.");
 
         let (new_k, new_c, parent_k) = self.update_split_child(i);
         let new_child = Node {
@@ -82,6 +105,7 @@ impl Node {
             c: new_c,
             leaf: self.c[i].leaf,
             root: false,
+            id: next_id(),
         };
 
         self.c.insert(i + 1, new_child);
@@ -102,6 +126,12 @@ impl Node {
         let parent_k = new_k.remove(0);
         (new_k, new_c, parent_k)
     }
+}
+
+impl fmt::Debug for Node {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "({}: {}/{} [{:?}..={:?}])", self.id, self.t, self.n, self.k[0], self.k[self.n-1])
+        }
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
