@@ -37,7 +37,8 @@ impl Node {
 
     pub fn set_root_child_and_split(new: &mut Node, mut old: Node) {
         assert!(new.root, "Illegal set of old root on non-root node.");
-        new.c[0] = old;
+        assert!(new.n == 0, "New root not empty.");
+        new.c.push(old);
         old.root = false;
         new.split_child(0);
     }
@@ -76,6 +77,10 @@ impl Node {
                 if self.leaf {
                     self.k.insert(i, k);
                     self.n += 1;
+                    if k.0 == 2 {
+                        warn!("id: {}, n: {}, k.len: {}, c.len: {}", self.id, self.n, self.k.len(), self.c.len());
+                        //
+                    }
                     debug!("Inserted {:?} into leaf {:?}", k, self);
                     Ok(())
                 } else {
@@ -95,7 +100,7 @@ impl Node {
     fn split_child(&mut self, i: usize) {
         assert!(!self.leaf, "Cannot split child of a leaf");
         assert!(!self.is_full(), "Can not split child of full parent.");
-        debug!("Splitting child.");
+        debug!("Splitting child {:?} of parent {:?}.", self.c[i], self);
 
         let (new_k, new_c, parent_k) = self.update_split_child(i);
         let new_child = Node {
@@ -111,8 +116,10 @@ impl Node {
         self.c.insert(i + 1, new_child);
         self.k.insert(i, parent_k);
         self.n += 1;
+        Node::print_rooted_at(&self);
     }
 
+    /// Handles all mutation of the child to be split.
     fn update_split_child(&mut self, i: usize) -> (Vec<Key>, Vec<Node>, Key) {
         let child: &mut Node = &mut self.c[i];
         assert!(child.is_full(), "Child to split must be full.");
@@ -126,11 +133,36 @@ impl Node {
         let parent_k = new_k.remove(0);
         (new_k, new_c, parent_k)
     }
+
+    pub fn print_rooted_at(n: &Node) {
+        println!("Printing subtree rooted at node {}{}:", n.id, if n.root { " which is the tree root" } else { ""});
+        Node::print_recursive(vec![&n], Vec::new());
+    }
+
+    fn print_recursive<'a>(mut siblings: Vec<&'a Node>, mut children: Vec<&'a Node>) {
+        if let Some(me) = siblings.pop() {
+            print!("{:?}", me);
+            if !me.leaf {
+                let mut c_refs: Vec<&'a Node> = me.c.iter().collect::<Vec<_>>();
+                children.append(&mut c_refs);
+            }
+            if siblings.is_empty() {
+                print!("\n");
+                Node::print_recursive(children, Vec::new());
+            } else {
+                Node::print_recursive(siblings, children);
+            }
+        }
+    }
 }
 
 impl fmt::Debug for Node {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            write!(f, "({}: {}/{} [{:?}..={:?}])", self.id, self.t, self.n, self.k[0], self.k[self.n-1])
+            if self.n == 0 {
+                write!(f, "({}: {}/{} empty{}{})", self.id, self.t, self.n, if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
+            } else {
+                write!(f, "({}: {}/{} [{:?}..={:?}]{}{})", self.id, self.t, self.n, self.k[0], self.k[self.n - 1], if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
+            }
         }
 }
 
