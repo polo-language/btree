@@ -23,6 +23,8 @@ fn main() {
 
     insert_batch(&mut tree);
 
+    tree.print();
+
     info!("Goodbye!");
 }
 
@@ -36,9 +38,8 @@ fn print_search(tree: &btree::BTree, key: &btree::node::Key) {
 fn insert_batch(tree: &mut btree::BTree) {
     for v in 0..100 {
         // TODO: Only handle the error.
-        match tree.insert(btree::node::Key(v)) {
-            Ok(_) => info!("Insert successful!"),
-            Err(msg) => info!("Insert failed {}", msg),
+        if let Err(msg) = tree.insert(btree::node::Key(v)) {
+            info!("Insert failed {}", msg)
         }
     }
 }

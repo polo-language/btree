@@ -30,7 +30,6 @@ impl BTree {
     }
 
     pub fn insert(&mut self, key: Key) -> Result<(), &'static str> {
-        Node::print_rooted_at(&self.root);
         if self.root.is_full() {
             debug!("Splitting root.");
             let new_root = Node::new_root(self.t, false);
@@ -38,6 +37,10 @@ impl BTree {
             Node::set_root_child_and_split(&mut self.root, old_root);
         }
         self.root.insert_nonfull(key)
+    }
+
+    pub fn print(&self) {
+        Node::print_rooted_at(&self.root);
     }
 }
 

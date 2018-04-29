@@ -38,8 +38,9 @@ impl Node {
     pub fn set_root_child_and_split(new: &mut Node, mut old: Node) {
         assert!(new.root, "Illegal set of old root on non-root node.");
         assert!(new.n == 0, "New root not empty.");
-        new.c.push(old);
         old.root = false;
+        new.c.push(old);
+        // Note: old will be a leaf iff it was a leaf prior to being demoted from root.
         new.split_child(0);
     }
 
@@ -77,14 +78,10 @@ impl Node {
                 if self.leaf {
                     self.k.insert(i, k);
                     self.n += 1;
-                    if k.0 == 2 {
-                        warn!("id: {}, n: {}, k.len: {}, c.len: {}", self.id, self.n, self.k.len(), self.c.len());
-                        //
-                    }
-                    debug!("Inserted {:?} into leaf {:?}", k, self);
+                    debug!("Inserted {:?} into {:?}", k, self);
                     Ok(())
                 } else {
-                    let mut i = i + 1;
+                    let mut i = i;
                     if self.c[i].is_full() {
                         self.split_child(i);
                         if k > self.k[i] {
@@ -116,26 +113,23 @@ impl Node {
         self.c.insert(i + 1, new_child);
         self.k.insert(i, parent_k);
         self.n += 1;
-        Node::print_rooted_at(&self);
     }
 
     /// Handles all mutation of the child to be split.
     fn update_split_child(&mut self, i: usize) -> (Vec<Key>, Vec<Node>, Key) {
         let child: &mut Node = &mut self.c[i];
         assert!(child.is_full(), "Child to split must be full.");
-        let new_c = match child.leaf {
-            true  => Vec::new(),
-            false => child.c.split_off(self.t + 1),
-        };
+        let new_c = match child.leaf { true  => Vec::new(),
+                                       false => child.c.split_off(self.t), };
         child.n = self.t - 1;
 
-        let mut new_k = child.k.split_off(self.t);
+        let mut new_k = child.k.split_off(self.t - 1);
         let parent_k = new_k.remove(0);
         (new_k, new_c, parent_k)
     }
 
     pub fn print_rooted_at(n: &Node) {
-        println!("Printing subtree rooted at node {}{}:", n.id, if n.root { " which is the tree root" } else { ""});
+        println!("Printing subtree rooted at node {}{}:", n.id, if n.root { " which is the tree root" } else { "" });
         Node::print_recursive(vec![&n], Vec::new());
     }
 
@@ -150,6 +144,7 @@ impl Node {
                 print!("\n");
                 Node::print_recursive(children, Vec::new());
             } else {
+                print!(" -- ");
                 Node::print_recursive(siblings, children);
             }
         }
