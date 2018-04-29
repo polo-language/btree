@@ -11,6 +11,8 @@ use std::mem;
 pub struct BTree {
     root: Node,
     t: usize,
+    n: u32,
+    d: u32,
 }
 
 impl BTree {
@@ -18,6 +20,8 @@ impl BTree {
         BTree {
             root: Node::new_root(t, true),
             t,
+            n: 0,
+            d: 1,
         }
     }
 
@@ -35,11 +39,16 @@ impl BTree {
             let new_root = Node::new_root(self.t, false);
             let old_root = mem::replace(&mut self.root, new_root);
             Node::set_root_child_and_split(&mut self.root, old_root);
+            self.d += 1;
         }
-        self.root.insert_nonfull(key)
+        self.root.insert_nonfull(key).map(|ok| {
+                self.n += 1;
+                ok
+        })
     }
 
     pub fn print(&self) {
+        println!("t: {}, n: {}, d: {}", self.t, self.n, self.d);
         Node::print_rooted_at(&self.root);
     }
 }
