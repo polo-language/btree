@@ -16,13 +16,25 @@ pub struct BTree {
 }
 
 impl BTree {
-    pub fn new(t: usize) -> BTree {
-        BTree {
-            root: Node::new_root(t, true),
-            t,
-            n: 0,
-            d: 1,
+    pub fn new(t: usize) -> Result<BTree, &'static str> {
+        if t < 2 {
+            Err("The minimum degree of a btree must be >= 2.")
+        } else {
+            Ok(BTree {
+                root: Node::new_root(t, true),
+                t,
+                n: 0,
+                d: 1,
+            })
         }
+    }
+
+    pub fn size(&self) -> u32 {
+        self.n
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.n == 0
     }
 
     pub fn search(&self, key: &Key) -> Option<(&Node, usize)> {
@@ -53,3 +65,51 @@ impl BTree {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_tree() {
+        let tree = BTree::new(2).unwrap();
+        assert!(tree.root.is_empty_root());
+        assert!(!tree.root.is_full());
+        assert_eq!(tree.d, 1);
+        assert!(tree.search(&Key(0)).is_none());
+    }
+
+    #[test]
+    fn new_tree_min_deg() {
+        assert!(BTree::new(0).is_err());
+        assert!(BTree::new(1).is_err());
+        assert!(BTree::new(2).is_ok());
+        assert!(BTree::new(10).is_ok());
+        assert!(BTree::new(8899000).is_ok());
+    }
+
+    #[test]
+    fn insert_search() {
+        let mut tree = BTree::new(2).unwrap();
+        let k = Key(10);
+        assert!(tree.search(&k).is_none());
+        assert_eq!(tree.d, 1);
+        assert_eq!(tree.size(), 0);
+        assert!(tree.insert(k).is_ok());
+        assert!(tree.search(&k).is_some());
+        assert_eq!(tree.d, 1);
+        assert_eq!(tree.size(), 1);
+        assert!(tree.insert(k).is_err());
+        assert!(tree.search(&k).is_some());
+        assert_eq!(tree.d, 1);
+        assert_eq!(tree.size(), 1);
+        assert!(tree.insert(Key(4)).is_ok());
+        assert_eq!(tree.d, 1);
+        assert_eq!(tree.size(), 2);
+        assert!(tree.insert(Key(200001)).is_ok());
+        assert_eq!(tree.d, 1);
+        assert_eq!(tree.size(), 3);
+        assert!(tree.insert(Key(204401)).is_ok());
+        assert_eq!(tree.d, 2);
+        assert_eq!(tree.size(), 4);
+    }
+}

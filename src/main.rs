@@ -11,7 +11,7 @@ fn main() {
 
     info!("Starting...");
 
-    let mut tree = btree::BTree::new(4);
+    let mut tree = btree::BTree::new(4).unwrap();
 
     let search_key = btree::node::Key(5);
     print_search(&tree, &search_key);
@@ -37,7 +37,6 @@ fn print_search(tree: &btree::BTree, key: &btree::node::Key) {
 
 fn insert_batch(tree: &mut btree::BTree) {
     for v in 0..100 {
-        // TODO: Only handle the error.
         if let Err(msg) = tree.insert(btree::node::Key(v)) {
             info!("Insert failed {}", msg)
         }

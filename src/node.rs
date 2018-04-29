@@ -170,3 +170,27 @@ impl fmt::Debug for Node {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Key(pub u32);
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ids() {
+        assert_eq!(next_id(), 0);
+        assert_eq!(next_id(), 1);
+        assert_eq!(next_id(), 2);
+    }
+
+    #[test]
+    fn new_root() {
+        let mut n = Node::new_root(10, true);
+        let k = Key(401);
+        assert!(n.is_empty_root());
+        assert!(!n.is_full());
+        assert!(n.search(&k).is_none());
+        assert!(n.insert_nonfull(k).is_ok());
+        assert!(n.search(&k).is_some());
+        assert!(n.insert_nonfull(k).is_err());
+        assert!(n.search(&k).is_some());
+    }
+}
