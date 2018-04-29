@@ -11,7 +11,7 @@ fn main() {
 
     info!("Starting...");
 
-    let mut tree = btree::BTree::new(2);
+    let mut tree = btree::BTree::new(4);
 
     let search_key = btree::node::Key(5);
     print_search(&tree, &search_key);
@@ -23,7 +23,7 @@ fn main() {
 
     insert_batch(&mut tree);
 
-    tree.print();
+    tree.print(15);
 
     info!("Goodbye!");
 }

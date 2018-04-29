@@ -37,7 +37,7 @@ impl Node {
 
     pub fn set_root_child_and_split(new: &mut Node, mut old: Node) {
         assert!(new.root, "Illegal set of old root on non-root node.");
-        assert!(new.n == 0, "New root not empty.");
+        assert_eq!(new.n, 0, "New root not empty.");
         old.root = false;
         new.c.push(old);
         // Note: old will be a leaf iff it was a leaf prior to being demoted from root.
@@ -128,25 +128,30 @@ impl Node {
         (new_k, new_c, parent_k)
     }
 
-    pub fn print_rooted_at(n: &Node) {
+    pub fn print_rooted_at(n: &Node, max_nodes: u32) {
         println!("Printing subtree rooted at node {}{}:", n.id, if n.root { " which is the tree root" } else { "" });
-        Node::print_recursive(vec![&n], Vec::new());
+        Node::print_recursive(vec![&n], Vec::new(), 0, max_nodes);
     }
 
-    fn print_recursive<'a>(mut siblings: Vec<&'a Node>, mut children: Vec<&'a Node>) {
+    fn print_recursive<'a>(mut siblings: Vec<&'a Node>, mut children: Vec<&'a Node>, mut so_far: u32, max_nodes: u32) {
         if let Some(me) = siblings.pop() {
-            print!("{:?}", me);
-            if !me.leaf {
-                let mut c_refs: Vec<&'a Node> = me.c.iter().collect::<Vec<_>>();
-                children.append(&mut c_refs);
-            }
-            if siblings.is_empty() {
-                print!("\n");
-                children.reverse();
-                Node::print_recursive(children, Vec::new());
+            if so_far < max_nodes {
+                print!("{:?}", me);
+                so_far += 1;
+                if !me.leaf {
+                    let mut c_refs: Vec<&'a Node> = me.c.iter().collect::<Vec<_>>();
+                    children.append(&mut c_refs);
+                }
+                if siblings.is_empty() {
+                    print!("\n");
+                    children.reverse();
+                    Node::print_recursive(children, Vec::new(), so_far, max_nodes);
+                } else {
+                    print!(" -- ");
+                    Node::print_recursive(siblings, children, so_far, max_nodes);
+                }
             } else {
-                print!(" -- ");
-                Node::print_recursive(siblings, children);
+                print!("...\n...\n");
             }
         }
     }

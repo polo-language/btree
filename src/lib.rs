@@ -47,9 +47,9 @@ impl BTree {
         })
     }
 
-    pub fn print(&self) {
+    pub fn print(&self, max_nodes: u32) {
         println!("t: {}, n: {}, d: {}", self.t, self.n, self.d);
-        Node::print_rooted_at(&self.root);
+        Node::print_rooted_at(&self.root, max_nodes);
     }
 }
 
