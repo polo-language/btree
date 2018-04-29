@@ -142,6 +142,7 @@ impl Node {
             }
             if siblings.is_empty() {
                 print!("\n");
+                children.reverse();
                 Node::print_recursive(children, Vec::new());
             } else {
                 print!(" -- ");
