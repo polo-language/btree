@@ -133,6 +133,32 @@ impl Node {
         Node::print_recursive(vec![&n], Vec::new(), 0, max_nodes);
     }
 
+    pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
+            where F: Fn(&Node, u32, A) -> Result<A, E> {
+        Node::walk_r(vec![self], program, accumulator, 0)
+    }
+
+    fn walk_r<F, A, E>(siblings: Vec<&Node>, program: &F, mut accumulator: A, height: u32) -> Result<A, E>
+            where F: Fn(&Node, u32, A) -> Result<A, E> {
+        let mut children = Vec::new();
+        for sister in siblings {
+            if !sister.leaf {
+                let mut c_refs: Vec<&Node> = sister.c.iter().collect::<Vec<_>>();
+                children.append(&mut c_refs);
+            }
+            match program(sister, height, accumulator) {
+                Ok(new_acc) => accumulator = new_acc,
+                err         => return err,
+            }
+        }
+        if !children.is_empty() {
+            children.reverse();
+            Node::walk_r(children, program, accumulator, height + 1)
+        } else {
+            Ok(accumulator)
+        }
+    }
+
     fn print_recursive<'a>(mut siblings: Vec<&'a Node>, mut children: Vec<&'a Node>, mut so_far: u32, max_nodes: u32) {
         if let Some(me) = siblings.pop() {
             if so_far < max_nodes {
@@ -173,12 +199,15 @@ pub struct Key(pub u32);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ::BTree;
+    use std::collections::HashSet;
 
-    #[test]
-    fn ids() {
-        assert_eq!(next_id(), 0);
-        assert_eq!(next_id(), 1);
-        assert_eq!(next_id(), 2);
+    fn tree_t_n(t: usize, n: u32) -> BTree {
+        let mut tree = BTree::new(t).unwrap();
+        for v in 0..n {
+            tree.insert(Key(v)).unwrap();
+        }
+        tree
     }
 
     #[test]
@@ -192,5 +221,114 @@ mod tests {
         assert!(n.search(&k).is_some());
         assert!(n.insert_nonfull(k).is_err());
         assert!(n.search(&k).is_some());
+    }
+
+    #[test]
+    fn only_one_root() {
+        let count_roots = |n: &Node, _: u32, a: u32| -> Result<u32, ()> {
+            Ok(a + if n.root { 1 } else { 0 })
+        };
+        
+        let mut root = Node::new_root(10, false);
+        let root2 = Node::new_root(10, true);
+        assert!(root.root);
+        assert!(root2.root);
+        root.c.push(root2);
+        assert_eq!(root.walk(&count_roots, 0).unwrap(), 2);
+
+        assert_eq!(tree_t_n(2, 0).walk(&count_roots, 0).unwrap(), 1);
+        assert_eq!(tree_t_n(2, 200).walk(&count_roots, 0).unwrap(), 1);
+        assert_eq!(tree_t_n(3, 5).walk(&count_roots, 0).unwrap(), 1);
+        assert_eq!(tree_t_n(2, 100000).walk(&count_roots, 0).unwrap(), 1);
+        assert_eq!(tree_t_n(1001, 100000).walk(&count_roots, 0).unwrap(), 1);
+    }
+
+    #[test]
+    fn all_leaves_same_height() {
+        let record_height = |n: &Node, h: u32, mut a: HashSet<u32>| -> Result<HashSet<u32>, ()> {
+            if n.leaf {
+                a.insert(h);
+            }
+            Ok(a)
+        };
+
+        let mut root = Node::new_root(10, false);
+        let mut l1 = Node::new_root(10, false);
+        let l2 = Node::new_root(10, true);
+        let r1 = Node::new_root(10, true);
+        assert!(l2.leaf);
+        assert!(r1.leaf);
+        l1.c.push(l2);
+        root.c.push(l1);
+        root.c.push(r1);
+        assert_eq!(root.walk(&record_height, HashSet::new()).unwrap().len(), 2);
+
+        assert_eq!(tree_t_n(2, 0).walk(&record_height, HashSet::new()).unwrap().len(), 1);
+        assert_eq!(tree_t_n(2, 200).walk(&record_height, HashSet::new()).unwrap().len(), 1);
+        assert_eq!(tree_t_n(3, 5).walk(&record_height, HashSet::new()).unwrap().len(), 1);
+        assert_eq!(tree_t_n(2, 100000).walk(&record_height, HashSet::new()).unwrap().len(), 1);
+        assert_eq!(tree_t_n(1001, 100000).walk(&record_height, HashSet::new()).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn key_counts() {
+        // Test that the key count invariants t-1 <= n <= 2t-1 always hold.
+        let key_count = |n: &Node, _: u32, _: bool| -> Result<bool, usize> {
+            if !n.root && (n.n < n.t - 1 || 2 * n.t - 1 < n.n) {
+                Err(n.n)
+            } else {
+                Ok(true)
+            }
+        };
+
+        assert!(tree_t_n(2, 0).walk(&key_count, true).is_ok());
+        assert!(tree_t_n(2, 200).walk(&key_count, true).is_ok());
+        assert!(tree_t_n(3, 5).walk(&key_count, true).is_ok());
+        assert!(tree_t_n(2, 100000).walk(&key_count, true).is_ok());
+        assert!(tree_t_n(1001, 100000).walk(&key_count, true).is_ok());
+    }
+
+    #[test]
+    fn child_counts() {
+        // Test that there is always exactly one more child than key for all internal nodes.
+        let child_count = |n: &Node, _: u32, _: bool| -> Result<bool, String> {
+            if n.leaf {
+                if n.c.len() > 0 {
+                    return Err(format!("Leaf {} has {} children.", n.id, n.c.len()))
+                }
+            } else if n.c.len() != n.k.len() + 1 {
+                return Err(format!("Non-leaf {} has {} children and {} keys.", n.id, n.c.len(), n.k.len()))
+            }
+            Ok(true)
+        };
+        
+        let mut root = Node::new_root(10, true);
+        let root2 = Node::new_root(10, true);
+        root.c.push(root2);
+        assert!(root.walk(&child_count, true).is_err());
+
+        assert!(tree_t_n(2, 0).walk(&child_count, true).is_ok());
+        assert!(tree_t_n(2, 200).walk(&child_count, true).is_ok());
+        assert!(tree_t_n(3, 5).walk(&child_count, true).is_ok());
+        assert!(tree_t_n(2, 100000).walk(&child_count, true).is_ok());
+        assert!(tree_t_n(1001, 100000).walk(&child_count, true).is_ok());
+    }
+
+    #[test]
+    fn n_key_len() {
+        // Test that n is always equal to k.len()
+        let n_key = |n: &Node, _: u32, _: bool| -> Result<bool, ()> {
+            if n.n != n.k.len() {
+                Err(())
+            } else {
+                Ok(true)
+            }
+        };
+
+        assert!(tree_t_n(2, 0).walk(&n_key, true).is_ok());
+        assert!(tree_t_n(2, 200).walk(&n_key, true).is_ok());
+        assert!(tree_t_n(3, 5).walk(&n_key, true).is_ok());
+        assert!(tree_t_n(2, 100000).walk(&n_key, true).is_ok());
+        assert!(tree_t_n(1001, 100000).walk(&n_key, true).is_ok());
     }
 }
