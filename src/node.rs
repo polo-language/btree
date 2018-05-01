@@ -1,14 +1,15 @@
 use std::fmt;
+use std::fmt::Debug;
 use std::mem;
 
 static mut ID: u32 = 0;
 
-pub struct Node {
+pub struct Node<K, V> {
     t: usize,
     n: usize,
-    k: Vec<Key>,
-    v: Vec<Value>,
-    c: Vec<Node>,
+    k: Vec<K>,
+    v: Vec<V>,
+    c: Vec<Node<K, V>>,
     leaf: bool,
     root: bool,
     id: u32,
@@ -22,8 +23,11 @@ fn next_id() -> u32 {
     }
 }
 
-impl Node {
-    pub fn new_root(t: usize, leaf: bool) -> Node {
+impl<K, V> Node<K, V>
+    where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
+          V: PartialEq + Debug
+{
+    pub fn new_root(t: usize, leaf: bool) -> Node<K, V> {
         Node {
             t,
             n: 0,
@@ -37,7 +41,7 @@ impl Node {
         }
     }
 
-    pub fn set_root_child_and_split(new: &mut Node, mut old: Node) {
+    pub fn set_root_child_and_split(new: &mut Node<K, V>, mut old: Node<K, V>) {
         assert!(new.root, "Illegal set of old root on non-root node.");
         assert_eq!(new.n, 0, "New root not empty.");
         old.root = false;
@@ -46,7 +50,7 @@ impl Node {
         new.split_child(0);
     }
 
-    pub fn search(&self, key: &Key) -> Option<(&Node, usize)> {
+    pub fn search(&self, key: &K) -> Option<(&Node<K, V>, usize)> {
         let mut i = 0;
         debug!("Searching node {:?} for key {:?}", self, key);
         while i < self.n && key > &self.k[i] {
@@ -64,7 +68,7 @@ impl Node {
         }
     }
 
-    pub fn get(&self, key: &Key) -> Option<&Value> {
+    pub fn get(&self, key: &K) -> Option<&V> {
         match self.search(key) {
             Some((ref n, i)) => n.v.get(i),
             None             => None,
@@ -75,7 +79,7 @@ impl Node {
         self.n >= 2 * self.t - 1
     }
 
-    pub fn insert_nonfull(&mut self, k: Key, v: Value) -> Option<Value> {
+    pub fn insert_nonfull(&mut self, k: K, v: V) -> Option<V> {
         match self.k.binary_search(&k) {
             Ok(i)  => Some(mem::replace(&mut self.v[i], v)),
             Err(i) => {
@@ -123,8 +127,8 @@ impl Node {
     }
 
     /// Handles all mutation of the child to be split.
-    fn update_split_child(&mut self, i: usize) -> (Vec<Key>, Vec<Value>, Vec<Node>, Key, Value) {
-        let child: &mut Node = &mut self.c[i];
+    fn update_split_child(&mut self, i: usize) -> (Vec<K>, Vec<V>, Vec<Node<K, V>>, K, V) {
+        let child = &mut self.c[i];
         assert!(child.is_full(), "Child to split must be full.");
         let new_c = match child.leaf { true  => Vec::new(),
                                        false => child.c.split_off(self.t), };
@@ -137,22 +141,22 @@ impl Node {
         (new_k, new_v, new_c, parent_k, parent_v)
     }
 
-    pub fn print_rooted_at(n: &Node, max_nodes: u32) {
+    pub fn print_rooted_at(n: &Node<K, V>, max_nodes: u32) {
         println!("Printing subtree rooted at node {}{}:", n.id, if n.root { " which is the tree root" } else { "" });
         Node::print_recursive(vec![&n], Vec::new(), 0, max_nodes);
     }
 
     pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
-            where F: Fn(&Node, u32, A) -> Result<A, E> {
+            where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
         Node::walk_r(vec![self], program, accumulator, 0)
     }
 
-    fn walk_r<F, A, E>(siblings: Vec<&Node>, program: &F, mut accumulator: A, height: u32) -> Result<A, E>
-            where F: Fn(&Node, u32, A) -> Result<A, E> {
+    fn walk_r<F, A, E>(siblings: Vec<&Node<K, V>>, program: &F, mut accumulator: A, height: u32) -> Result<A, E>
+            where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
         let mut children = Vec::new();
         for sister in siblings {
             if !sister.leaf {
-                let mut c_refs: Vec<&Node> = sister.c.iter().collect::<Vec<_>>();
+                let mut c_refs: Vec<&Node<K, V>> = sister.c.iter().collect::<Vec<_>>();
                 children.append(&mut c_refs);
             }
             match program(sister, height, accumulator) {
@@ -168,13 +172,13 @@ impl Node {
         }
     }
 
-    fn print_recursive<'a>(mut siblings: Vec<&'a Node>, mut children: Vec<&'a Node>, mut so_far: u32, max_nodes: u32) {
+    fn print_recursive<'a>(mut siblings: Vec<&'a Node<K, V>>, mut children: Vec<&'a Node<K, V>>, mut so_far: u32, max_nodes: u32) {
         if let Some(me) = siblings.pop() {
             if so_far < max_nodes {
                 print!("{:?}", me);
                 so_far += 1;
                 if !me.leaf {
-                    let mut c_refs: Vec<&'a Node> = me.c.iter().collect::<Vec<_>>();
+                    let mut c_refs: Vec<&'a Node<K, V>> = me.c.iter().collect::<Vec<_>>();
                     children.append(&mut c_refs);
                 }
                 if siblings.is_empty() {
@@ -192,7 +196,10 @@ impl Node {
     }
 }
 
-impl fmt::Debug for Node {
+impl<K, V> fmt::Debug for Node<K, V>
+    where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
+          V: PartialEq + Debug
+{
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             if self.n == 0 {
                 write!(f, "({}: {}/{} empty{}{})", self.id, self.t, self.n, if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
@@ -201,12 +208,6 @@ impl fmt::Debug for Node {
             }
         }
 }
-
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
-pub struct Key(pub u32);
-
-#[derive(PartialEq, Debug)]
-pub struct Value(pub String);
 
 #[cfg(test)]
 mod tests {
@@ -217,7 +218,7 @@ mod tests {
     use std::collections::HashSet;
     use node::tests::rand::distributions::{IndependentSample, Range};
 
-    fn tree_t_n(t: usize, n: u32) -> BTree {
+    fn tree_t_n(t: usize, n: u32) -> BTree<u32, String> {
         let max = 1_000_000_000;
         if n > (0.8 * max as f64) as u32 {
             panic!("Choose a tree size smaller than {}.", (0.8 * max as f64) as u32);
@@ -228,10 +229,9 @@ mod tests {
         let mut tree = BTree::new(t).unwrap();
         let mut i = 0;
         while i < n {
-            let v = between.ind_sample(&mut rng);
-            let key = Key(v);
+            let key = between.ind_sample(&mut rng);
             if !tree.contains(&key) {
-                tree.insert(key, Value(v.to_string()));
+                tree.insert(key, key.to_string());
                 i += 1;
             }
         }
@@ -240,10 +240,10 @@ mod tests {
 
     #[test]
     fn new_root() {
-        let mut n = Node::new_root(10, true);
-        let k = Key(401);
-        let v1 = Value("test1".to_string());
-        let v2 = Value("test2".to_string());
+        let mut n = Node::<u32, String>::new_root(10, true);
+        let k = 401;
+        let v1 = "test1".to_string();
+        let v2 = "test2".to_string();
         assert_eq!(n.n, 0);
         assert!(!n.is_full());
         assert!(n.search(&k).is_none());
@@ -255,12 +255,12 @@ mod tests {
 
     #[test]
     fn only_one_root() {
-        let count_roots = |n: &Node, _: u32, a: u32| -> Result<u32, ()> {
+        let count_roots = |n: &Node<u32, String>, _: u32, a: u32| -> Result<u32, ()> {
             Ok(a + if n.root { 1 } else { 0 })
         };
         
-        let mut root = Node::new_root(10, false);
-        let root2 = Node::new_root(10, true);
+        let mut root = Node::<u32, String>::new_root(10, false);
+        let root2 = Node::<u32, String>::new_root(10, true);
         assert!(root.root);
         assert!(root2.root);
         root.c.push(root2);
@@ -275,17 +275,17 @@ mod tests {
 
     #[test]
     fn all_leaves_same_height() {
-        let record_height = |n: &Node, h: u32, mut a: HashSet<u32>| -> Result<HashSet<u32>, ()> {
+        let record_height = |n: &Node<u32, String>, h: u32, mut a: HashSet<u32>| -> Result<HashSet<u32>, ()> {
             if n.leaf {
                 a.insert(h);
             }
             Ok(a)
         };
 
-        let mut root = Node::new_root(10, false);
-        let mut l1 = Node::new_root(10, false);
-        let l2 = Node::new_root(10, true);
-        let r1 = Node::new_root(10, true);
+        let mut root = Node::<u32, String>::new_root(10, false);
+        let mut l1 = Node::<u32, String>::new_root(10, false);
+        let l2 = Node::<u32, String>::new_root(10, true);
+        let r1 = Node::<u32, String>::new_root(10, true);
         assert!(l2.leaf);
         assert!(r1.leaf);
         l1.c.push(l2);
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn key_counts() {
         // Test that the key count invariants t-1 <= n <= 2t-1 always hold.
-        let key_count = |n: &Node, _: u32, _: bool| -> Result<bool, usize> {
+        let key_count = |n: &Node<u32, String>, _: u32, _: bool| -> Result<bool, usize> {
             if !n.root && (n.n < n.t - 1 || 2 * n.t - 1 < n.n) {
                 Err(n.n)
             } else {
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn child_counts() {
         // Test that there is always exactly one more child than key for all internal nodes.
-        let child_count = |n: &Node, _: u32, _: bool| -> Result<bool, String> {
+        let child_count = |n: &Node<u32, String>, _: u32, _: bool| -> Result<bool, String> {
             if n.leaf {
                 if n.c.len() > 0 {
                     return Err(format!("Leaf {} has {} children.", n.id, n.c.len()))
@@ -332,8 +332,8 @@ mod tests {
             Ok(true)
         };
         
-        let mut root = Node::new_root(10, true);
-        let root2 = Node::new_root(10, true);
+        let mut root = Node::<u32, String>::new_root(10, true);
+        let root2 = Node::<u32, String>::new_root(10, true);
         root.c.push(root2);
         assert!(root.walk(&child_count, true).is_err());
 
@@ -347,7 +347,7 @@ mod tests {
     #[test]
     fn n_key_len() {
         // Test that n is always equal to k.len() and v.len()
-        let n_key = |n: &Node, _: u32, _: bool| -> Result<bool, ()> {
+        let n_key = |n: &Node<u32, String>, _: u32, _: bool| -> Result<bool, ()> {
             if n.n != n.k.len() || n.n != n.v.len() {
                 Err(())
             } else {
@@ -364,52 +364,52 @@ mod tests {
 
     #[test]
     fn retrieve() {
-        let mut tree = BTree::new(2).unwrap();
-        let k = Key(6);
+        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let k = 6;
         assert!(!tree.contains(&k));
-        assert!(tree.insert(k, Value("abc".to_string())).is_none());
+        assert!(tree.insert(k, "abc".to_string()).is_none());
         assert!(tree.contains(&k));
-        let prev1 = tree.insert(k, Value("123;.&".to_string()));
+        let prev1 = tree.insert(k, "123;.&".to_string());
         assert!(prev1.is_some());
-        assert_eq!(prev1.unwrap(), Value("abc".to_string()));
-        let prev2 = tree.insert(k, Value("   ___".to_string()));
+        assert_eq!(prev1.unwrap(), "abc".to_string());
+        let prev2 = tree.insert(k, "   ___".to_string());
         assert!(prev2.is_some());
-        assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
+        assert_eq!(prev2.unwrap(), "123;.&".to_string());
 
         let mut tree = tree_t_n(5, 350);
-        let k = Key(6);
-        tree.insert(k, Value("abc".to_string()));
+        let k = 6;
+        tree.insert(k, "abc".to_string());
         assert!(tree.contains(&k));
-        let prev1 = tree.insert(k, Value("123;.&".to_string()));
+        let prev1 = tree.insert(k, "123;.&".to_string());
         assert!(prev1.is_some());
-        assert_eq!(prev1.unwrap(), Value("abc".to_string()));
-        let prev2 = tree.insert(k, Value("   ___".to_string()));
+        assert_eq!(prev1.unwrap(), "abc".to_string());
+        let prev2 = tree.insert(k, "   ___".to_string());
         assert!(prev2.is_some());
-        assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
+        assert_eq!(prev2.unwrap(), "123;.&".to_string());
     }
 
     #[test]
     fn get() {
-        let mut tree = BTree::new(2).unwrap();
-        let k = Key(40091);
+        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let k = 40091;
         assert!(!tree.contains(&k));
-        assert!(tree.insert(k, Value("abc".to_string())).is_none());
+        assert!(tree.insert(k, "abc".to_string()).is_none());
         assert!(tree.contains(&k));
         let prev1 = tree.get(&k);
         assert!(prev1.is_some());
-        assert_eq!(prev1.unwrap(), &Value("abc".to_string()));
+        assert_eq!(prev1.unwrap(), &"abc".to_string());
         assert!(tree.contains(&k));
-        let k2 = Key(101);
+        let k2 = 101;
         assert!(!tree.contains(&k2));
         assert!(tree.get(&k2).is_none());
 
         let mut tree = tree_t_n(5, 350);
-        let k = Key(40091);
-        tree.insert(k, Value("abc".to_string()));
+        let k = 40091;
+        tree.insert(k, "abc".to_string());
         assert!(tree.contains(&k));
         let prev1 = tree.get(&k);
         assert!(prev1.is_some());
-        assert_eq!(prev1.unwrap(), &Value("abc".to_string()));
+        assert_eq!(prev1.unwrap(), &"abc".to_string());
         assert!(tree.contains(&k));
     }
 }

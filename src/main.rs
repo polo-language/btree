@@ -9,11 +9,11 @@ fn main() {
 
     info!("Starting...");
 
-    let mut tree = btree::BTree::new(4).unwrap();
+    let mut tree = btree::BTree::<u32, String>::new(4).unwrap();
 
-    let search_key = btree::node::Key(5);
+    let search_key = 5;
     print_search(&tree, &search_key);
-    tree.insert(search_key, btree::node::Value("a string".to_string()));
+    tree.insert(search_key, "a string".to_string());
     print_search(&tree, &search_key);
 
     insert_batch(&mut tree);
@@ -23,7 +23,7 @@ fn main() {
     info!("Goodbye!");
 }
 
-fn print_search(tree: &btree::BTree, key: &btree::node::Key) {
+fn print_search(tree: &btree::BTree<u32, String>, key: &u32) {
     if tree.contains(key) {
         info!("Tree contains key {:?}.", key);
     } else {
@@ -31,8 +31,8 @@ fn print_search(tree: &btree::BTree, key: &btree::node::Key) {
     }
 }
 
-fn insert_batch(tree: &mut btree::BTree) {
+fn insert_batch(tree: &mut btree::BTree<u32, String>) {
     for v in 0..100 {
-        tree.insert(btree::node::Key(v), btree::node::Value(v.to_string()));
+        tree.insert(v, v.to_string());
     }
 }
