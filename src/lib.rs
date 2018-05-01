@@ -5,6 +5,7 @@ pub mod node;
 
 pub use self::node::Node;
 pub use self::node::Key;
+pub use self::node::Value;
 
 use std::mem;
 
@@ -37,15 +38,11 @@ impl BTree {
         self.n == 0
     }
 
-    pub fn search(&self, key: &Key) -> Option<(&Node, usize)> {
-        if self.root.is_empty_root() {
-            None
-        } else {
-            self.root.search(key)
-        }
+    pub fn contains(&self, key: &Key) -> bool {
+        self.n > 0 && self.root.search(key).is_some()
     }
 
-    pub fn insert(&mut self, key: Key) -> Result<(), &'static str> {
+    pub fn insert(&mut self, key: Key, v: Value) -> Option<Value> {
         if self.root.is_full() {
             debug!("Splitting root.");
             let new_root = Node::new_root(self.t, false);
@@ -53,10 +50,12 @@ impl BTree {
             Node::set_root_child_and_split(&mut self.root, old_root);
             self.d += 1;
         }
-        self.root.insert_nonfull(key).map(|ok| {
-                self.n += 1;
-                ok
-        })
+        match self.root.insert_nonfull(key, v) {
+            None => { self.n += 1;
+                None
+            },
+            some => some,
+        }
     }
 
     pub fn print(&self, max_nodes: u32) {
@@ -77,10 +76,10 @@ mod tests {
     #[test]
     fn new_tree() {
         let tree = BTree::new(2).unwrap();
-        assert!(tree.root.is_empty_root());
+        assert!(tree.is_empty());
         assert!(!tree.root.is_full());
         assert_eq!(tree.d, 1);
-        assert!(tree.search(&Key(0)).is_none());
+        assert!(!tree.contains(&Key(0)));
     }
 
     #[test]
@@ -96,25 +95,40 @@ mod tests {
     fn insert_search() {
         let mut tree = BTree::new(2).unwrap();
         let k = Key(10);
-        assert!(tree.search(&k).is_none());
+        assert!(!tree.contains(&k));
         assert_eq!(tree.d, 1);
         assert_eq!(tree.size(), 0);
-        assert!(tree.insert(k).is_ok());
-        assert!(tree.search(&k).is_some());
+        assert!(tree.insert(k, Value("abc".to_string())).is_none());
+        assert!(tree.contains(&k));
         assert_eq!(tree.d, 1);
         assert_eq!(tree.size(), 1);
-        assert!(tree.insert(k).is_err());
-        assert!(tree.search(&k).is_some());
+        assert!(tree.insert(k, Value("zyxabc".to_string())).is_some());
+        assert!(tree.contains(&k));
         assert_eq!(tree.d, 1);
         assert_eq!(tree.size(), 1);
-        assert!(tree.insert(Key(4)).is_ok());
+        assert!(tree.insert(Key(4), Value("      ".to_string())).is_none());
         assert_eq!(tree.d, 1);
         assert_eq!(tree.size(), 2);
-        assert!(tree.insert(Key(200001)).is_ok());
+        assert!(tree.insert(Key(200001), Value("__bc".to_string())).is_none());
         assert_eq!(tree.d, 1);
         assert_eq!(tree.size(), 3);
-        assert!(tree.insert(Key(204401)).is_ok());
+        assert!(tree.insert(Key(204401), Value("abc".to_string())).is_none());
         assert_eq!(tree.d, 2);
         assert_eq!(tree.size(), 4);
+    }
+
+    #[test]
+    fn retrieve() {
+        let mut tree = BTree::new(2).unwrap();
+        let k = Key(6);
+        assert!(!tree.contains(&k));
+        assert!(tree.insert(k, Value("abc".to_string())).is_none());
+        assert!(tree.contains(&k));
+        let prev1 = tree.insert(k, Value("123;.&".to_string()));
+        assert!(prev1.is_some());
+        assert_eq!(prev1.unwrap(), Value("abc".to_string()));
+        let prev2 = tree.insert(k, Value("   ___".to_string()));
+        assert!(prev2.is_some());
+        assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
     }
 }

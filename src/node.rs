@@ -1,4 +1,5 @@
 use std::fmt;
+use std::mem;
 
 static mut ID: u32 = 0;
 
@@ -6,11 +7,11 @@ pub struct Node {
     t: usize,
     n: usize,
     k: Vec<Key>,
+    v: Vec<Value>,
     c: Vec<Node>,
     leaf: bool,
     root: bool,
     id: u32,
-    // data: ...,
 }
 
 fn next_id() -> u32 {
@@ -27,6 +28,7 @@ impl Node {
             t,
             n: 0,
             k: Vec::with_capacity(t),
+            v: Vec::with_capacity(t),
             c: match leaf { true  => Vec::new(),
                             false => Vec::with_capacity(t + 1), },
             leaf,
@@ -42,11 +44,6 @@ impl Node {
         new.c.push(old);
         // Note: old will be a leaf iff it was a leaf prior to being demoted from root.
         new.split_child(0);
-    }
-
-    pub fn is_empty_root(&self) -> bool {
-        assert!(self.root, "Should not be checking if a non-root node is empty.");
-        self.n == 0
     }
 
     pub fn search(&self, key: &Key) -> Option<(&Node, usize)> {
@@ -71,15 +68,16 @@ impl Node {
         self.n >= 2 * self.t - 1
     }
 
-    pub fn insert_nonfull(&mut self, k: Key) -> Result<(), &'static str> {
+    pub fn insert_nonfull(&mut self, k: Key, v: Value) -> Option<Value> {
         match self.k.binary_search(&k) {
-            Ok(_)  => Err("Attempting to insert duplicate key."),
+            Ok(i)  => Some(mem::replace(&mut self.v[i], v)),
             Err(i) => {
                 if self.leaf {
                     self.k.insert(i, k);
+                    self.v.insert(i, v);
                     self.n += 1;
                     debug!("Inserted {:?} into {:?}", k, self);
-                    Ok(())
+                    None
                 } else {
                     let mut i = i;
                     if self.c[i].is_full() {
@@ -88,7 +86,7 @@ impl Node {
                             i += 1;
                         }
                     }
-                    self.c[i].insert_nonfull(k)
+                    self.c[i].insert_nonfull(k, v)
                 }
             },
         }
@@ -99,11 +97,12 @@ impl Node {
         assert!(!self.is_full(), "Can not split child of full parent.");
         debug!("Splitting child {:?} of parent {:?}.", self.c[i], self);
 
-        let (new_k, new_c, parent_k) = self.update_split_child(i);
+        let (new_k, new_v, new_c, parent_k, parent_v) = self.update_split_child(i);
         let new_child = Node {
             t: self.t,
             n: self.t - 1,
             k: new_k,
+            v: new_v,
             c: new_c,
             leaf: self.c[i].leaf,
             root: false,
@@ -112,11 +111,12 @@ impl Node {
 
         self.c.insert(i + 1, new_child);
         self.k.insert(i, parent_k);
+        self.v.insert(i, parent_v);
         self.n += 1;
     }
 
     /// Handles all mutation of the child to be split.
-    fn update_split_child(&mut self, i: usize) -> (Vec<Key>, Vec<Node>, Key) {
+    fn update_split_child(&mut self, i: usize) -> (Vec<Key>, Vec<Value>, Vec<Node>, Key, Value) {
         let child: &mut Node = &mut self.c[i];
         assert!(child.is_full(), "Child to split must be full.");
         let new_c = match child.leaf { true  => Vec::new(),
@@ -125,7 +125,9 @@ impl Node {
 
         let mut new_k = child.k.split_off(self.t - 1);
         let parent_k = new_k.remove(0);
-        (new_k, new_c, parent_k)
+        let mut new_v = child.v.split_off(self.t - 1);
+        let parent_v = new_v.remove(0);
+        (new_k, new_v, new_c, parent_k, parent_v)
     }
 
     pub fn print_rooted_at(n: &Node, max_nodes: u32) {
@@ -196,16 +198,35 @@ impl fmt::Debug for Node {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy, Debug)]
 pub struct Key(pub u32);
 
+#[derive(PartialEq, Debug)]
+pub struct Value(pub String);
+
 #[cfg(test)]
 mod tests {
+    extern crate rand;
+
     use super::*;
     use ::BTree;
     use std::collections::HashSet;
+    use node::tests::rand::distributions::{IndependentSample, Range};
 
     fn tree_t_n(t: usize, n: u32) -> BTree {
+        let max = 1_000_000_000;
+        if n > (0.8 * max as f64) as u32 {
+            panic!("Choose a tree size smaller than {}.", (0.8 * max as f64) as u32);
+        }
+        let between = Range::new(0, max);
+        let mut rng = rand::thread_rng();
+
         let mut tree = BTree::new(t).unwrap();
-        for v in 0..n {
-            tree.insert(Key(v)).unwrap();
+        let mut i = 0;
+        while i < n {
+            let v = between.ind_sample(&mut rng);
+            let key = Key(v);
+            if !tree.contains(&key) {
+                tree.insert(key, Value(v.to_string()));
+                i += 1;
+            }
         }
         tree
     }
@@ -214,12 +235,14 @@ mod tests {
     fn new_root() {
         let mut n = Node::new_root(10, true);
         let k = Key(401);
-        assert!(n.is_empty_root());
+        let v1 = Value("test1".to_string());
+        let v2 = Value("test2".to_string());
+        assert_eq!(n.n, 0);
         assert!(!n.is_full());
         assert!(n.search(&k).is_none());
-        assert!(n.insert_nonfull(k).is_ok());
+        assert!(n.insert_nonfull(k, v1).is_none());
         assert!(n.search(&k).is_some());
-        assert!(n.insert_nonfull(k).is_err());
+        assert!(n.insert_nonfull(k, v2).is_some());
         assert!(n.search(&k).is_some());
     }
 
@@ -316,9 +339,9 @@ mod tests {
 
     #[test]
     fn n_key_len() {
-        // Test that n is always equal to k.len()
+        // Test that n is always equal to k.len() and v.len()
         let n_key = |n: &Node, _: u32, _: bool| -> Result<bool, ()> {
-            if n.n != n.k.len() {
+            if n.n != n.k.len() || n.n != n.v.len() {
                 Err(())
             } else {
                 Ok(true)
