@@ -64,6 +64,13 @@ impl Node {
         }
     }
 
+    pub fn get(&self, key: &Key) -> Option<&Value> {
+        match self.search(key) {
+            Some((ref n, i)) => n.v.get(i),
+            None             => None,
+        }
+    }
+
     pub fn is_full(&self) -> bool {
         self.n >= 2 * self.t - 1
     }
@@ -353,5 +360,42 @@ mod tests {
         assert!(tree_t_n(3, 5).walk(&n_key, true).is_ok());
         assert!(tree_t_n(2, 100000).walk(&n_key, true).is_ok());
         assert!(tree_t_n(1001, 100000).walk(&n_key, true).is_ok());
+    }
+
+    fn retrieve_for(mut tree: BTree) {
+        let k = Key(6);
+        assert!(!tree.contains(&k));
+        assert!(tree.insert(k, Value("abc".to_string())).is_none());
+        assert!(tree.contains(&k));
+        let prev1 = tree.insert(k, Value("123;.&".to_string()));
+        assert!(prev1.is_some());
+        assert_eq!(prev1.unwrap(), Value("abc".to_string()));
+        let prev2 = tree.insert(k, Value("   ___".to_string()));
+        assert!(prev2.is_some());
+        assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
+    }
+    #[test]
+    fn retrieve() {
+        // Test retrieval via insert in a clean tree and an already loaded tree.
+        retrieve_for(BTree::new(2).unwrap());
+        retrieve_for(tree_t_n(5, 350));
+    }
+
+    fn get_for(mut tree: BTree) {
+        let k = Key(40091);
+        assert!(!tree.contains(&k));
+        assert!(tree.insert(k, Value("abc".to_string())).is_none());
+        assert!(tree.contains(&k));
+        let prev1 = tree.get(&k);
+        assert!(prev1.is_some());
+        assert_eq!(prev1.unwrap(), &Value("abc".to_string()));
+        assert!(tree.contains(&k));
+    }
+
+    #[test]
+    fn get() {
+        // Test retrieval via get in a clean tree and an already loaded tree.
+        get_for(BTree::new(2).unwrap());
+        get_for(tree_t_n(5, 350));
     }
 }

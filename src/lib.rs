@@ -42,6 +42,14 @@ impl BTree {
         self.n > 0 && self.root.search(key).is_some()
     }
 
+    pub fn get(&self, key: &Key) -> Option<&Value> {
+        if self.n > 0 {
+            self.root.get(key)
+        } else {
+            None
+        }
+    }
+
     pub fn insert(&mut self, key: Key, v: Value) -> Option<Value> {
         if self.root.is_full() {
             debug!("Splitting root.");
@@ -115,20 +123,5 @@ mod tests {
         assert!(tree.insert(Key(204401), Value("abc".to_string())).is_none());
         assert_eq!(tree.d, 2);
         assert_eq!(tree.size(), 4);
-    }
-
-    #[test]
-    fn retrieve() {
-        let mut tree = BTree::new(2).unwrap();
-        let k = Key(6);
-        assert!(!tree.contains(&k));
-        assert!(tree.insert(k, Value("abc".to_string())).is_none());
-        assert!(tree.contains(&k));
-        let prev1 = tree.insert(k, Value("123;.&".to_string()));
-        assert!(prev1.is_some());
-        assert_eq!(prev1.unwrap(), Value("abc".to_string()));
-        let prev2 = tree.insert(k, Value("   ___".to_string()));
-        assert!(prev2.is_some());
-        assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
     }
 }
