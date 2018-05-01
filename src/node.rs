@@ -362,7 +362,9 @@ mod tests {
         assert!(tree_t_n(1001, 100000).walk(&n_key, true).is_ok());
     }
 
-    fn retrieve_for(mut tree: BTree) {
+    #[test]
+    fn retrieve() {
+        let mut tree = BTree::new(2).unwrap();
         let k = Key(6);
         assert!(!tree.contains(&k));
         assert!(tree.insert(k, Value("abc".to_string())).is_none());
@@ -373,15 +375,22 @@ mod tests {
         let prev2 = tree.insert(k, Value("   ___".to_string()));
         assert!(prev2.is_some());
         assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
-    }
-    #[test]
-    fn retrieve() {
-        // Test retrieval via insert in a clean tree and an already loaded tree.
-        retrieve_for(BTree::new(2).unwrap());
-        retrieve_for(tree_t_n(5, 350));
+
+        let mut tree = tree_t_n(5, 350);
+        let k = Key(6);
+        tree.insert(k, Value("abc".to_string()));
+        assert!(tree.contains(&k));
+        let prev1 = tree.insert(k, Value("123;.&".to_string()));
+        assert!(prev1.is_some());
+        assert_eq!(prev1.unwrap(), Value("abc".to_string()));
+        let prev2 = tree.insert(k, Value("   ___".to_string()));
+        assert!(prev2.is_some());
+        assert_eq!(prev2.unwrap(), Value("123;.&".to_string()));
     }
 
-    fn get_for(mut tree: BTree) {
+    #[test]
+    fn get() {
+        let mut tree = BTree::new(2).unwrap();
         let k = Key(40091);
         assert!(!tree.contains(&k));
         assert!(tree.insert(k, Value("abc".to_string())).is_none());
@@ -390,12 +399,17 @@ mod tests {
         assert!(prev1.is_some());
         assert_eq!(prev1.unwrap(), &Value("abc".to_string()));
         assert!(tree.contains(&k));
-    }
+        let k2 = Key(101);
+        assert!(!tree.contains(&k2));
+        assert!(tree.get(&k2).is_none());
 
-    #[test]
-    fn get() {
-        // Test retrieval via get in a clean tree and an already loaded tree.
-        get_for(BTree::new(2).unwrap());
-        get_for(tree_t_n(5, 350));
+        let mut tree = tree_t_n(5, 350);
+        let k = Key(40091);
+        tree.insert(k, Value("abc".to_string()));
+        assert!(tree.contains(&k));
+        let prev1 = tree.get(&k);
+        assert!(prev1.is_some());
+        assert_eq!(prev1.unwrap(), &Value("abc".to_string()));
+        assert!(tree.contains(&k));
     }
 }
