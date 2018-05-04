@@ -62,9 +62,20 @@ impl<K, V> BTree<K, V>
         }
         match self.root.insert_nonfull(key, value) {
             None => { self.n += 1;
-                None
-            },
-            some => some,
+                      None },
+            some =>   some,
+        }
+    }
+
+    pub fn delete(&mut self, key: &K) -> Option<V> {
+        match self.root.delete(&key) {
+            (None, None)             =>   None,
+            (some_v, None)           => { self.n -= 1;
+                                          some_v },
+            (some_v, Some(new_root)) => { self.n -= 1;
+                                          self.d -= 1;
+                                          mem::replace(&mut self.root, new_root);
+                                          some_v },
         }
     }
 
