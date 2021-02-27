@@ -2,8 +2,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::mem;
 
-static mut ID: u32 = 0;
-
 pub struct Node<K, V> {
     t: usize,
     n: usize,
@@ -12,15 +10,6 @@ pub struct Node<K, V> {
     c: Vec<Node<K, V>>,
     leaf: bool,
     root: bool,
-    id: u32,
-}
-
-fn next_id() -> u32 {
-    unsafe {
-        let current = ID;
-        ID += 1;
-        current
-    }
 }
 
 impl<K, V> Node<K, V>
@@ -37,7 +26,6 @@ impl<K, V> Node<K, V>
                             false => Vec::with_capacity(t + 1), },
             leaf,
             root: true,
-            id: next_id(),
         }
     }
 
@@ -57,7 +45,7 @@ impl<K, V> Node<K, V>
             i += 1;
         }
         if i < self.n && key == &self.k[i] {
-            debug!("Search - found key {:?} at node {}", key, self.id);
+            debug!("Search - found key {:?} at node {:?}", key, self);
             Some((&self, i))
         } else {
             if self.leaf {
@@ -117,7 +105,6 @@ impl<K, V> Node<K, V>
             c: new_c,
             leaf: self.c[i].leaf,
             root: false,
-            id: next_id(),
         };
 
         self.c.insert(i + 1, new_child);
@@ -275,7 +262,7 @@ impl<K, V> Node<K, V>
     }
 
     pub fn print_rooted_at(n: &Node<K, V>, max_nodes: u32) {
-        println!("Printing subtree rooted at node {}{}:", n.id, if n.root { " which is the tree root" } else { "" });
+        println!("Printing subtree rooted at node {:?}{}:", n, if n.root { " which is the tree root" } else { "" });
         Node::print_recursive(vec![&n], Vec::new(), 0, max_nodes);
     }
 
@@ -335,9 +322,9 @@ impl<K, V> fmt::Debug for Node<K, V>
 {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             if self.n == 0 {
-                write!(f, "({}: {}/{} empty{}{})", self.id, self.t, self.n, if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
+                write!(f, "({}/{} empty{}{})", self.t, self.n, if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
             } else {
-                write!(f, "({}: {}/{} [{:?}..={:?}]{}{})", self.id, self.t, self.n, self.k[0], self.k[self.n - 1], if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
+                write!(f, "({}/{} [{:?}..={:?}]{}{})", self.t, self.n, self.k[0], self.k[self.n - 1], if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
             }
         }
 }
@@ -457,10 +444,10 @@ mod tests {
         let child_count = |n: &Node<u32, String>, _: u32, _: bool| -> Result<bool, String> {
             if n.leaf {
                 if n.c.len() > 0 {
-                    return Err(format!("Leaf {} has {} children.", n.id, n.c.len()))
+                    return Err(format!("Leaf {:?} has {} children.", n, n.c.len()))
                 }
             } else if n.c.len() != n.k.len() + 1 {
-                return Err(format!("Non-leaf {} has {} children and {} keys.", n.id, n.c.len(), n.k.len()))
+                return Err(format!("Non-leaf {:?} has {} children and {} keys.", n, n.c.len(), n.k.len()))
             }
             Ok(true)
         };
