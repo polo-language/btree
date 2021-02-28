@@ -10,8 +10,11 @@ use std::mem;
 
 pub struct BTree<K, V> {
     root: Node<K, V>,
+    /// The order of the tree
     t: usize,
+    /// The number of elements contained in the tree
     n: u32,
+    /// The depth of the tree, including the root and leaf layers
     d: u32,
 }
 
@@ -19,6 +22,7 @@ impl<K, V> BTree<K, V>
     where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
           V: PartialEq + Debug
 {
+    /// Creates a new `BTree` of order `t`.
     pub fn new(t: usize) -> Result<BTree<K, V>, &'static str> {
         if t < 2 {
             Err("The minimum degree of a btree must be >= 2.")
@@ -32,18 +36,22 @@ impl<K, V> BTree<K, V>
         }
     }
 
+    /// Returns the current number of elements contained in the tree
     pub fn size(&self) -> u32 {
         self.n
     }
 
+    /// Whether the tree is empty or not
     pub fn is_empty(&self) -> bool {
         self.n == 0
     }
 
+    /// Whether the tree contains an entry for `key`
     pub fn contains(&self, key: &K) -> bool {
         self.n > 0 && self.root.search(key).is_some()
     }
 
+    /// Returns the value associated with `key`, if a mapping exists.
     pub fn get(&self, key: &K) -> Option<&V> {
         if self.n > 0 {
             self.root.get(key)
@@ -52,6 +60,9 @@ impl<K, V> BTree<K, V>
         }
     }
 
+    /// Inserts the key-value pair into the tree.
+    /// If a value for `key` is already present in the tree, an `Option`
+    /// containing the previous value is returned, `None` otherwise.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         if self.root.is_full() {
             debug!("Splitting root.");
@@ -67,6 +78,8 @@ impl<K, V> BTree<K, V>
         }
     }
 
+    /// Deletes the mapping for the provided `key`. Returns the previous value
+    /// if the tree did contain a mapping, `None` otherwise.
     pub fn delete(&mut self, key: &K) -> Option<V> {
         match self.root.delete(&key) {
             (None, None)             =>   None,
