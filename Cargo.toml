@@ -1,11 +1,11 @@
 [package]
 name = "btree"
-version = "0.1.0"
-authors = ["Angelo Polo <polo.language@gmail.com>"]
+version = "0.1.1"
+authors = ["Angelo Polo <language.devel@gmail.com>"]
 
 [dependencies]
-log = "0.4.1"
-env_logger = "0.5.9"
+log = "0.4.14"
+env_logger = "0.8.3"
 
 [dev-dependencies]
-rand = "0.4.2"
+rand = "0.8.3"

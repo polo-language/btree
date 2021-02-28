@@ -333,23 +333,27 @@ impl<K, V> fmt::Debug for Node<K, V>
 mod tests {
     extern crate rand;
 
+    const MAX_TREE_SIZE: u32 = 1_000_000_000;
+
     use super::*;
     use ::BTree;
     use std::collections::HashSet;
-    use node::tests::rand::distributions::{IndependentSample, Range};
+    use node::tests::rand::distributions::{Distribution, Uniform};
 
+    /// Creates a tree of order t and fills it with n random unique integer keys
+    /// and values equal to the keys' string values.
     fn tree_t_n(t: usize, n: u32) -> BTree<u32, String> {
-        let max = 1_000_000_000;
-        if n > (0.8 * max as f64) as u32 {
-            panic!("Choose a tree size smaller than {}.", (0.8 * max as f64) as u32);
+        if n > (0.8 * MAX_TREE_SIZE as f64) as u32 {
+            panic!("Choose a tree size smaller than {}.",
+                    (0.8 * MAX_TREE_SIZE as f64) as u32);
         }
-        let between = Range::new(0, max);
+        let between = Uniform::new(0, MAX_TREE_SIZE);
         let mut rng = rand::thread_rng();
 
         let mut tree = BTree::new(t).unwrap();
         let mut i = 0;
         while i < n {
-            let key = between.ind_sample(&mut rng);
+            let key = between.sample(&mut rng);
             if !tree.contains(&key) {
                 tree.insert(key, key.to_string());
                 i += 1;
