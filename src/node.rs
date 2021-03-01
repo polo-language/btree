@@ -30,7 +30,7 @@ impl<K, V> Node<K, V>
     }
 
     /// The number of key-value pairs located on this node
-    /// For all non-root nodes the following holds: `t - 1 <= n <= 2*t - 1`
+    /// For all non-root nodes the following holds: `t - 1 <= len <= 2*t - 1`
     pub fn len(&self) -> usize {
         self.k.len()
     }
@@ -145,7 +145,7 @@ impl<K, V> Node<K, V>
     /// rebalancing.
     pub fn delete(&mut self, key: &K) -> (Option<V>, Option<Node<K, V>>) {
         assert!(self.root, "Node::delete may only be called on a tree root.");
-        if self.len() == 1 && !self.leaf {
+        if self.len() == 1 && !self.leaf { // Root has 1 key and 2 children.
             if self.k[0] == *key {
                 let (mid_k, mid_v) = self.c[0].delete_extreme(true); // Could alternately delete min of self.c[1].
                 let right = self.c.remove(1);
@@ -153,10 +153,11 @@ impl<K, V> Node<K, V>
                 Node::merge(&mut left, (mid_k, mid_v), right);
                 return (Some(self.v.remove(0)), Some(left))
             } else if self.c[0].len() < self.t && self.c[1].len() < self.t {
+                // Neither child will be able to take from the other.
                 self.merge_children(0);
                 let opt_v = self.c[0].delete_r(key);
                 return (opt_v, Some(self.c.remove(0)))
-            }
+            } // Else no special actions needed at root. Continue recursively.
         }
         (self.delete_r(key), None)
     }
@@ -164,6 +165,9 @@ impl<K, V> Node<K, V>
     /// Deletes the mapping for `key` from the subtree rooted at this node.
     /// Returns the previous value if the tree did contain a mapping,
     /// `None` otherwise.
+    ///
+    /// Assumes self has more than the minimum number of keys, so that one can
+    /// be safely removed.
     fn delete_r(&mut self, key: &K) -> Option<V> {
         if self.leaf {
             match self.k.binary_search(&key) {
@@ -174,22 +178,25 @@ impl<K, V> Node<K, V>
         } else {
             match self.k.binary_search(&key) {
                 Ok(i) => {
-                    // 0 <= i <= n - 1
+                    // 0 <= i <= len - 1
                     if self.c[i].len() >= self.t {
+                        // Replace with the largest key from the left child.
                         let (new_k, new_v) = self.c[i].delete_extreme(true);
                         mem::replace(&mut self.k[i], new_k);
                         Some(mem::replace(&mut self.v[i], new_v))
                     } else if self.c[i + 1].len() >= self.t {
+                        // Replace with the smallest key from the right child.
                         let (new_k, new_v) = self.c[i + 1].delete_extreme(false);
                         mem::replace(&mut self.k[i], new_k);
                         Some(mem::replace(&mut self.v[i], new_v))
                     } else {
+                        // Merge both children. Our length shortens by one.
                         self.merge_children(i);
                         self.c[i].delete_r(key)
                     }
                 },
                 Err(i) => {
-                    // 0 <= i <= n
+                    // 0 <= i <= len
                     // key is in self.c[i] if we have it.
                     self.ensure_has_t_keys(i);
                     self.c[i].delete_r(key)
@@ -246,6 +253,7 @@ impl<K, V> Node<K, V>
         }
     }
 
+    /// Merges into the child at index `left_i` its right sibling.
     fn merge_children(&mut self, left_i: usize) {
         let right_c = self.c.remove(left_i + 1);
         let k = self.k.remove(left_i);
@@ -253,20 +261,15 @@ impl<K, V> Node<K, V>
         Node::merge(&mut self.c[left_i], (k, v), right_c);
     }
 
-    /// Merges all content from right into left.
+    /// Merges all of right's content into left, placing mid in-between.
+    /// This is not a tree-invariant preserving operation!
     fn merge(left: &mut Node<K, V>, mid: (K, V), mut right: Node<K, V>) {
         left.k.push(mid.0);
-        for k in right.k.drain(..) {
-            left.k.push(k);
-        }
+        left.k.extend(right.k);
         left.v.push(mid.1);
-        for v in right.v.drain(..) {
-            left.v.push(v);
-        }
-        for c in right.c.drain(..) {
-            left.c.push(c);
-        }
-        // right is dropped.
+        left.v.extend(right.v);
+        left.c.extend(right.c);
+        // Drops right.
     }
 
     pub fn print_rooted_at(node: &Node<K, V>, max_nodes: u32) {
