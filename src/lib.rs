@@ -87,7 +87,7 @@ impl<K, V> BTree<K, V>
                                           some_v },
             (some_v, Some(new_root)) => { self.n -= 1;
                                           self.d -= 1;
-                                          mem::replace(&mut self.root, new_root);
+                                          self.root = new_root;
                                           some_v },
         }
     }

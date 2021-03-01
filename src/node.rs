@@ -182,12 +182,12 @@ impl<K, V> Node<K, V>
                     if self.c[i].len() >= self.t {
                         // Replace with the largest key from the left child.
                         let (new_k, new_v) = self.c[i].delete_extreme(true);
-                        mem::replace(&mut self.k[i], new_k);
+                        self.k[i] = new_k;
                         Some(mem::replace(&mut self.v[i], new_v))
                     } else if self.c[i + 1].len() >= self.t {
                         // Replace with the smallest key from the right child.
                         let (new_k, new_v) = self.c[i + 1].delete_extreme(false);
-                        mem::replace(&mut self.k[i], new_k);
+                        self.k[i] =  new_k;
                         Some(mem::replace(&mut self.v[i], new_v))
                     } else {
                         // Merge both children. Our length shortens by one.
@@ -263,7 +263,7 @@ impl<K, V> Node<K, V>
 
     /// Merges all of right's content into left, placing mid in-between.
     /// This is not a tree-invariant preserving operation!
-    fn merge(left: &mut Node<K, V>, mid: (K, V), mut right: Node<K, V>) {
+    fn merge(left: &mut Node<K, V>, mid: (K, V), right: Node<K, V>) {
         left.k.push(mid.0);
         left.k.extend(right.k);
         left.v.push(mid.1);
