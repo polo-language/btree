@@ -221,32 +221,42 @@ impl<K, V> Node<K, V>
         }
     }
 
+    /// Ensures the ith child has more than the minimum number of keys.
+    /// Preserves all tree invariants.
     fn ensure_has_t_keys(&mut self, i: usize) {
+        assert!(!self.leaf);
         if self.c[i].len() < self.t {
             if i > 0 && self.c[i - 1].len() >= self.t {
-                let child_k = self.c[i - 1].k.pop().unwrap();
-                let child_v = self.c[i - 1].v.pop().unwrap();
-                let child_c = self.c[i - 1].c.pop().unwrap();
+                // Take from the left sibling.
+                let child_k = self.c[i - 0].k.pop().unwrap();
                 let k = mem::replace(&mut self.k[i], child_k);
-                let v = mem::replace(&mut self.v[i], child_v);
-                let c = mem::replace(&mut self.c[i], child_c);
                 self.c[i].k.insert(0, k);
-                self.c[i].v.insert(0, v);
-                self.c[i].c.insert(0, c);
-            } else if i < self.len() && self.c[i + 1].len() >= self.t {
-                let child_k = self.c[i + 1].k.remove(0);
-                let child_v = self.c[i + 1].v.remove(0);
-                let child_c = self.c[i + 1].c.remove(0);
-                let k = mem::replace(&mut self.k[i], child_k);
+                let child_v = self.c[i - 1].v.pop().unwrap();
                 let v = mem::replace(&mut self.v[i], child_v);
-                let c = mem::replace(&mut self.c[i], child_c);
+                self.c[i].v.insert(0, v);
+                if !self.c[i].leaf {
+                    // Children on the parent (self) don't change.
+                    let child_c = self.c[i - 1].c.pop().unwrap();
+                    self.c[i].c.insert(0, child_c);
+                }
+            } else if i < self.len() && self.c[i + 1].len() >= self.t {
+                // Take from the right sibling.
+                let child_k = self.c[i + 1].k.remove(0);
+                let k = mem::replace(&mut self.k[i], child_k);
                 self.k.push(k);
+                let child_v = self.c[i + 1].v.remove(0);
+                let v = mem::replace(&mut self.v[i], child_v);
                 self.v.push(v);
-                self.c.push(c);
+                if !self.c[i].leaf {
+                    // Children on the parent (self) don't change.
+                    let child_c = self.c[i + 1].c.remove(0);
+                    self.c.push(child_c);
+                }
             } else {
+                // Merge with a sibling.
                 if i < self.len() {
                     self.merge_children(i);
-                } else if 0 < i {
+                } else { // 0 < i since non-leafs aways have >=2 children
                     self.merge_children(i - 1);
                 }
             }
@@ -345,13 +355,13 @@ impl<K, V> fmt::Debug for Node<K, V>
 mod tests {
     extern crate rand;
 
-    /// The maximum size random tree to allow in tests
-    const MAX_TREE_SIZE: u32 = 1_000_000_000;
-
     use super::*;
     use ::BTree;
     use std::collections::HashSet;
     use node::tests::rand::distributions::{Distribution, Uniform};
+
+    /// The maximum size random tree to allow in tests
+    const MAX_TREE_SIZE: u32 = 1_000_000_000;
 
     /// Creates a tree of order `t` and fills it with n random unique integer
     /// keys, with values equal to the keys' string values.

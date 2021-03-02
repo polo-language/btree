@@ -97,7 +97,7 @@ impl<K, V> BTree<K, V>
         Node::print_rooted_at(&self.root, max_nodes);
     }
 
-    fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
+    pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
             where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
         self.root.walk(program, accumulator)
     }
