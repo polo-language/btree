@@ -65,7 +65,7 @@ impl<K, V> BTree<K, V>
     }
 
     /// Inserts the key-value pair into the tree.
-    /// Returns the previous value if the tree did contain a mapping for `key`, `None` otherwise.
+    /// Returns the previous value if the tree contained a mapping for `key`, `None` otherwise.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         if self.root.is_full() {
             debug!("Splitting root.");
@@ -74,7 +74,7 @@ impl<K, V> BTree<K, V>
             Node::set_root_child_and_split(&mut self.root, old_root);
             self.d += 1;
         }
-        match self.root.insert_nonfull(key, value) {
+        match self.root.insert(key, value) {
             None => { self.n += 1;
                       None },
             some =>   some,
@@ -101,6 +101,9 @@ impl<K, V> BTree<K, V>
         Node::print_subtree(&self.root, max_nodes);
     }
 
+    /// Walks the tree by level order traversal.
+    /// The folding operation `program` has access to the current depth at each node.
+    /// Returns the final accumulator value, or the first error encountered.
     pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
             where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
         self.root.walk(program, accumulator)

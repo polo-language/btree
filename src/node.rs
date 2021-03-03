@@ -32,7 +32,7 @@ impl<K, V> Node<K, V>
 
     /// The number of key-value pairs located on this node
     /// For all non-root nodes the following holds: `t - 1 <= len <= 2*t - 1`
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.k.len()
     }
 
@@ -82,9 +82,10 @@ impl<K, V> Node<K, V>
     }
 
     /// Inserts the key-value pair into the tree rooted at this node.
-    /// If a value for `key` is already present in the tree, an `Option`
-    /// containing the previous value is returned, `None` otherwise.
-    pub fn insert_nonfull(&mut self, key: K, value: V) -> Option<V> {
+    /// It is an error to call on a full node!
+    /// Returns the previous value if the tree contained a mapping for `key`, `None` otherwise.
+    pub fn insert(&mut self, key: K, value: V) -> Option<V> {
+        assert!(!self.is_full());
         match self.k.binary_search(&key) {
             Ok(i)  => Some(mem::replace(&mut self.v[i], value)),
             Err(i) => {
@@ -101,7 +102,7 @@ impl<K, V> Node<K, V>
                             i += 1;
                         }
                     }
-                    self.c[i].insert_nonfull(key, value)
+                    self.c[i].insert(key, value)
                 }
             },
         }
@@ -419,9 +420,9 @@ mod tests {
         assert_eq!(node.len(), 0);
         assert!(!node.is_full());
         assert!(node.search(&k).is_none());
-        assert!(node.insert_nonfull(k, v1).is_none());
+        assert!(node.insert(k, v1).is_none());
         assert!(node.search(&k).is_some());
-        assert!(node.insert_nonfull(k, v2).is_some());
+        assert!(node.insert(k, v2).is_some());
         assert!(node.search(&k).is_some());
     }
 
