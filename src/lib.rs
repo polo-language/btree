@@ -3,7 +3,7 @@ extern crate log;
 
 pub mod node;
 
-pub use self::node::Node;
+use self::node::Node;
 
 use std::fmt::Debug;
 use std::mem;
