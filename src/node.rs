@@ -17,6 +17,7 @@ impl<K, V> Node<K, V>
     where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
           V: PartialEq + Debug
 {
+    /// Creates a new root node.
     pub fn new_root(t: usize, leaf: bool) -> Node<K, V> {
         Node {
             t,
@@ -35,9 +36,11 @@ impl<K, V> Node<K, V>
         self.k.len()
     }
 
+    /// Sets `old` as the sole child of `new` and then splits `old`.
     pub fn set_root_child_and_split(new: &mut Node<K, V>, mut old: Node<K, V>) {
         assert!(new.root, "Illegal set of old root on non-root node.");
         assert_eq!(new.len(), 0, "New root not empty.");
+        assert!(old.is_full(), "Former root must be full in order to be split.");
         old.root = false;
         new.c.push(old);
         // Note: old will be a leaf iff it was a leaf prior to being demoted from root.
@@ -65,6 +68,7 @@ impl<K, V> Node<K, V>
         }
     }
 
+    /// Returns the value associated with `key`, if a mapping exists in the subtree at this node.
     pub fn get(&self, key: &K) -> Option<&V> {
         match self.search(key) {
             Some((ref n, i)) => n.v.get(i),
@@ -72,6 +76,7 @@ impl<K, V> Node<K, V>
         }
     }
 
+    /// Whether the node is full, i.e. no more keys may be set on it.
     pub fn is_full(&self) -> bool {
         self.len() >= 2 * self.t - 1
     }
@@ -102,6 +107,7 @@ impl<K, V> Node<K, V>
         }
     }
 
+    /// Splits the ith child, creating a new right sibling.
     fn split_child(&mut self, i: usize) {
         assert!(!self.leaf, "Cannot split child of a leaf");
         assert!(!self.is_full(), "Can not split child of full parent.");
@@ -137,8 +143,7 @@ impl<K, V> Node<K, V>
     }
 
     /// Deletes the mapping for the provided `key`.
-    /// May only be called on a tree root node! See [`delete_r`] for deleting
-    /// from a non-root subtree.
+    /// It is an error to call on a non-root node!
     ///
     /// Returns a tuple containing the previous value, if the tree contained a
     /// mapping for `key`, and the new root node, if it was replaced during
@@ -147,7 +152,8 @@ impl<K, V> Node<K, V>
         assert!(self.root, "Node::delete may only be called on a tree root.");
         if self.len() == 1 && !self.leaf { // Root has 1 key and 2 children.
             if self.k[0] == *key {
-                let (mid_k, mid_v) = self.c[0].delete_extreme(true); // Could alternately delete min of self.c[1].
+                // Could alternately move min of self.c[1] instead of max of self.c[0].
+                let (mid_k, mid_v) = self.c[0].delete_extreme(true);
                 let right = self.c.remove(1);
                 let mut left = self.c.remove(0);
                 Node::merge(&mut left, (mid_k, mid_v), right);
@@ -282,19 +288,23 @@ impl<K, V> Node<K, V>
         // Drops right.
     }
 
-    pub fn print_rooted_at(node: &Node<K, V>, max_nodes: u32) {
-        println!("Printing subtree rooted at node {:?}{}:",
-                node, if node.root { " which is the tree root" } else { "" });
-        Node::print_recursive(vec![&node], Vec::new(), 0, max_nodes);
-    }
-
+    /// Walks the tree by level order traversal.
+    /// The folding operation `program` has access to the current depth at each node.
+    /// Returns the final accumulator value, or the first error encountered.
     pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
             where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
         Node::walk_r(vec![self], program, accumulator, 0)
     }
 
-    fn walk_r<F, A, E>(siblings: Vec<&Node<K, V>>, program: &F, mut accumulator: A, height: u32) -> Result<A, E>
-            where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
+    /// Walks the tree by level order traversal, starting with the `siblings` nodes.
+    /// The folding operation `program` has access to the current depth at each node.
+    /// Returns the final accumulator value, or the first error encountered.
+    fn walk_r<F, A, E>(
+            siblings: Vec<&Node<K, V>>,
+            program: &F,
+            mut accumulator: A,
+            height: u32
+    ) -> Result<A, E> where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
         let mut children = Vec::new();
         for sister in siblings {
             if !sister.leaf {
@@ -314,7 +324,19 @@ impl<K, V> Node<K, V>
         }
     }
 
-    fn print_recursive<'a>(mut siblings: Vec<&'a Node<K, V>>, mut children: Vec<&'a Node<K, V>>, mut so_far: u32, max_nodes: u32) {
+    /// Print up to `max_nodes` of the subree rooted at `node`, by level order traversal.
+    pub fn print_subtree(node: &Node<K, V>, max_nodes: u32) {
+        Node::print_recursive(vec![&node], Vec::new(), 0, max_nodes);
+    }
+
+    /// Recursively prints `sibling` nodes, appending their children, then recursively print all
+    /// children (as the next row of siblings).
+    fn print_recursive<'a>(
+            mut siblings: Vec<&'a Node<K, V>>,
+            mut children: Vec<&'a Node<K, V>>,
+            mut so_far: u32,
+            max_nodes: u32
+    ) {
         if let Some(me) = siblings.pop() {
             if so_far < max_nodes {
                 print!("{:?}", me);
@@ -344,9 +366,12 @@ impl<K, V> fmt::Debug for Node<K, V>
 {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             if self.len() == 0 {
-                write!(f, "({}/{} empty{}{})", self.t, self.len(), if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
+                write!(f, "({}/{} empty{}{})", self.t, self.len(),
+                        if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
             } else {
-                write!(f, "({}/{} [{:?}..={:?}]{}{})", self.t, self.len(), self.k[0], self.k[self.len() - 1], if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
+                write!(f, "({}/{} [{:?}..={:?}]{}{})", self.t, self.len(), self.k[0],
+                        self.k[self.len() - 1], if self.leaf { " leaf" } else { "" },
+                        if self.root { " ROOT" } else { "" })
             }
         }
 }
@@ -422,7 +447,8 @@ mod tests {
 
     #[test]
     fn all_leaves_same_height() {
-        let record_height = |n: &Node<u32, String>, h: u32, mut a: HashSet<u32>| -> Result<HashSet<u32>, ()> {
+        let record_height = |n: &Node<u32, String>, h: u32, mut a: HashSet<u32>|
+                -> Result<HashSet<u32>, ()> {
             if n.leaf {
                 a.insert(h);
             }

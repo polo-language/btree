@@ -8,13 +8,17 @@ use self::node::Node;
 use std::fmt::Debug;
 use std::mem;
 
+/// B-tree data structure. Stores key-value pairs in a self-balancing tree.
+/// Provides the usual map operations.
+/// The order of the tree is half of the maximum number of key-value pairs storable on each node.
 pub struct BTree<K, V> {
+    /// Root of the tree
     root: Node<K, V>,
-    /// The order of the tree
+    /// Order of the tree
     t: usize,
-    /// The number of elements contained in the tree
+    /// Number of elements contained in the tree
     n: u32,
-    /// The depth of the tree, including the root and leaf layers
+    /// Depth of the tree, including the root and leaf layers
     d: u32,
 }
 
@@ -61,8 +65,7 @@ impl<K, V> BTree<K, V>
     }
 
     /// Inserts the key-value pair into the tree.
-    /// If a value for `key` is already present in the tree, an `Option`
-    /// containing the previous value is returned, `None` otherwise.
+    /// Returns the previous value if the tree did contain a mapping for `key`, `None` otherwise.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         if self.root.is_full() {
             debug!("Splitting root.");
@@ -78,8 +81,8 @@ impl<K, V> BTree<K, V>
         }
     }
 
-    /// Deletes the mapping for the provided `key`. Returns the previous value
-    /// if the tree did contain a mapping, `None` otherwise.
+    /// Deletes the mapping for the provided `key`.
+    /// Returns the previous value if the tree did contain a mapping, `None` otherwise.
     pub fn delete(&mut self, key: &K) -> Option<V> {
         match self.root.delete(&key) {
             (None, None)             =>   None,
@@ -92,9 +95,10 @@ impl<K, V> BTree<K, V>
         }
     }
 
+    /// Print up to `max_nodes` of the tree, by level order traversal.
     pub fn print(&self, max_nodes: u32) {
         println!("t: {}, n: {}, d: {}", self.t, self.n, self.d);
-        Node::print_rooted_at(&self.root, max_nodes);
+        Node::print_subtree(&self.root, max_nodes);
     }
 
     pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
