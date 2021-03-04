@@ -51,19 +51,15 @@ impl<K, V> Node<K, V>
     /// tuple of the node continaing the key and the index at which to retrieve
     /// the mapping.
     pub fn search(&self, key: &K) -> Option<(&Node<K, V>, usize)> {
-        let mut i = 0;
         debug!("Searching node {:?} for key {:?}", self, key);
-        while i < self.len() && key > &self.k[i] {
-            i += 1;
-        }
-        if i < self.len() && key == &self.k[i] {
-            debug!("Search - found key {:?} at node {:?}", key, self);
-            Some((&self, i))
-        } else {
-            if self.leaf {
-                None
-            } else {
-                self.c[i].search(key)
+        match self.k.binary_search(key) {
+            Ok(i)  => Some((&self, i)),
+            Err(i) => {
+                if self.leaf {
+                    None
+                } else {
+                    self.c[i].search(key)
+                }
             }
         }
     }
@@ -545,7 +541,7 @@ mod tests {
     }
 
     #[test]
-    fn retrieve() {
+    fn update() {
         let mut tree = BTree::<u32, String>::new(2).unwrap();
         let k = 6;
         assert!(!tree.contains(&k));
@@ -593,6 +589,32 @@ mod tests {
         assert!(prev1.is_some());
         assert_eq!(prev1.unwrap(), &"abc".to_string());
         assert!(tree.contains(&k));
+
+        let mut tree = BTree::<u32, String>::new(100).unwrap();
+        for i in 1..100_000 {
+            tree.insert(i, i.to_string());
+        }
+        for i in 1..100_000 {
+            assert!(tree.contains(&i));
+        }
+        assert!(!tree.contains(&u32::MIN));
+        assert!(!tree.contains(&u32::MAX));
+        assert!(!tree.contains(&0));
+        assert!(!tree.contains(&100_001));
+        assert!(!tree.contains(&10_000_000));
+
+        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        for i in 1..100_000 {
+            tree.insert(i, i.to_string());
+        }
+        for i in 1..100_000 {
+            assert!(tree.get(&i).is_some());
+        }
+        assert!(tree.get(&u32::MIN).is_none());
+        assert!(tree.get(&u32::MAX).is_none());
+        assert!(tree.get(&0).is_none());
+        assert!(tree.get(&100_001).is_none());
+        assert!(tree.get(&10_000_000).is_none());
     }
 
     #[test]
