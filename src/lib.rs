@@ -27,16 +27,13 @@ impl<K, V> BTree<K, V>
           V: PartialEq + Debug
 {
     /// Creates a new `BTree` of order `t`.
-    pub fn new(t: usize) -> Result<BTree<K, V>, &'static str> {
-        if t < 2 {
-            Err("The minimum degree of a btree must be >= 2.")
-        } else {
-            Ok(BTree {
-                root: Node::new_root(t, true),
-                t,
-                n: 0,
-                d: 1,
-            })
+    pub fn new(t: usize) -> BTree<K, V> {
+        assert!(2 <= t);
+        BTree {
+            root: Node::new_root(t, true),
+            t,
+            n: 0,
+            d: 1,
         }
     }
 
@@ -95,6 +92,11 @@ impl<K, V> BTree<K, V>
         }
     }
 
+    /// Removes all mappings.
+    pub fn clear(&mut self) {
+        *self = BTree::new(self.t);
+    }
+
     /// Print up to `max_nodes` of the tree, by level order traversal.
     pub fn print(&self, max_nodes: u32) {
         println!("t: {}, n: {}, d: {}", self.t, self.n, self.d);
@@ -113,10 +115,21 @@ impl<K, V> BTree<K, V>
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::panic;
+
+    fn catch_unwind_silent<F: FnOnce() -> R + panic::UnwindSafe, R>(f: F)
+            -> std::thread::Result<R>
+    {
+        let prev_hook = panic::take_hook();
+        panic::set_hook(Box::new(|_| {}));
+        let result = panic::catch_unwind(f);
+        panic::set_hook(prev_hook);
+        result
+    }
 
     #[test]
     fn new_tree() {
-        let tree = BTree::<u32, String>::new(2).unwrap();
+        let tree = BTree::<u32, String>::new(2);
         assert!(tree.is_empty());
         assert!(!tree.root.is_full());
         assert_eq!(tree.d, 1);
@@ -125,16 +138,19 @@ mod tests {
 
     #[test]
     fn new_tree_min_deg() {
-        assert!(BTree::<u32, String>::new(0).is_err());
-        assert!(BTree::<u32, String>::new(1).is_err());
-        assert!(BTree::<u32, String>::new(2).is_ok());
-        assert!(BTree::<u32, String>::new(10).is_ok());
-        assert!(BTree::<u32, String>::new(8899000).is_ok());
+        let result = catch_unwind_silent(|| BTree::<u32, String>::new(0));
+        assert!(result.is_err());
+        let result = catch_unwind_silent(|| BTree::<u32, String>::new(1));
+        assert!(result.is_err());
+        // These don't fail.
+        BTree::<u32, String>::new(2);
+        BTree::<u32, String>::new(10);
+        BTree::<u32, String>::new(8899000);
     }
 
     #[test]
     fn insert_search() {
-        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let mut tree = BTree::<u32, String>::new(2);
         let k = 10;
         assert!(!tree.contains(&k));
         assert_eq!(tree.d, 1);
@@ -156,5 +172,17 @@ mod tests {
         assert!(tree.insert(204401, "abc".to_string()).is_none());
         assert_eq!(tree.d, 2);
         assert_eq!(tree.size(), 4);
+    }
+
+    #[test]
+    fn clear() {
+        let mut tree = BTree::<u32, String>::new(2);
+        assert!(tree.is_empty());
+        for i in 0..100 {
+            tree.insert(i, i.to_string());
+        }
+        assert!(!tree.is_empty());
+        tree.clear();
+        assert!(tree.is_empty());
     }
 }

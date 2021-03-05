@@ -395,7 +395,7 @@ mod tests {
         let between = Uniform::new(0, MAX_TREE_SIZE);
         let mut rng = rand::thread_rng();
 
-        let mut tree = BTree::new(t).unwrap();
+        let mut tree = BTree::new(t);
         let mut i = 0;
         while i < n {
             let key = between.sample(&mut rng);
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn update() {
-        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let mut tree = BTree::<u32, String>::new(2);
         let k = 6;
         assert!(!tree.contains(&k));
         assert!(tree.insert(k, "abc".to_string()).is_none());
@@ -568,7 +568,7 @@ mod tests {
 
     #[test]
     fn get() {
-        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let mut tree = BTree::<u32, String>::new(2);
         let k = 40091;
         assert!(!tree.contains(&k));
         assert!(tree.insert(k, "abc".to_string()).is_none());
@@ -590,7 +590,7 @@ mod tests {
         assert_eq!(prev1.unwrap(), &"abc".to_string());
         assert!(tree.contains(&k));
 
-        let mut tree = BTree::<u32, String>::new(100).unwrap();
+        let mut tree = BTree::<u32, String>::new(100);
         for i in 1..100_000 {
             tree.insert(i, i.to_string());
         }
@@ -603,7 +603,7 @@ mod tests {
         assert!(!tree.contains(&100_001));
         assert!(!tree.contains(&10_000_000));
 
-        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let mut tree = BTree::<u32, String>::new(2);
         for i in 1..100_000 {
             tree.insert(i, i.to_string());
         }
@@ -619,7 +619,7 @@ mod tests {
 
     #[test]
     fn delete_from_root() {
-        let mut tree = BTree::<u32, String>::new(2).unwrap();
+        let mut tree = BTree::<u32, String>::new(2);
         let k = 40091;
         let v = "abc".to_string();
         let v_copy = v.clone();
