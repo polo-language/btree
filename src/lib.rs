@@ -23,8 +23,9 @@ pub struct BTree<K, V> {
 }
 
 impl<K, V> BTree<K, V>
-    where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
-          V: PartialEq + Debug
+where
+    K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
+    V: PartialEq + Debug,
 {
     /// Creates a new `BTree` of order `t`.
     pub fn new(t: usize) -> BTree<K, V> {
@@ -72,9 +73,11 @@ impl<K, V> BTree<K, V>
             self.d += 1;
         }
         match self.root.insert(key, value) {
-            None => { self.n += 1;
-                      None },
-            some =>   some,
+            None => {
+                self.n += 1;
+                None
+            }
+            some => some,
         }
     }
 
@@ -82,13 +85,17 @@ impl<K, V> BTree<K, V>
     /// Returns the previous value if the tree did contain a mapping, `None` otherwise.
     pub fn delete(&mut self, key: &K) -> Option<V> {
         match self.root.delete(&key) {
-            (None, None)             =>   None,
-            (some_v, None)           => { self.n -= 1;
-                                          some_v },
-            (some_v, Some(new_root)) => { self.n -= 1;
-                                          self.d -= 1;
-                                          self.root = new_root;
-                                          some_v },
+            (None, None) => None,
+            (some_v, None) => {
+                self.n -= 1;
+                some_v
+            }
+            (some_v, Some(new_root)) => {
+                self.n -= 1;
+                self.d -= 1;
+                self.root = new_root;
+                some_v
+            }
         }
     }
 
@@ -107,7 +114,9 @@ impl<K, V> BTree<K, V>
     /// The folding operation `program` has access to the current depth at each node.
     /// Returns the final accumulator value, or the first error encountered.
     pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
-            where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
+    where
+        F: Fn(&Node<K, V>, u32, A) -> Result<A, E>,
+    {
         self.root.walk(program, accumulator)
     }
 }
@@ -117,9 +126,9 @@ mod tests {
     use super::*;
     use std::panic;
 
-    fn catch_unwind_silent<F: FnOnce() -> R + panic::UnwindSafe, R>(f: F)
-            -> std::thread::Result<R>
-    {
+    fn catch_unwind_silent<F: FnOnce() -> R + panic::UnwindSafe, R>(
+        f: F,
+    ) -> std::thread::Result<R> {
         let prev_hook = panic::take_hook();
         panic::set_hook(Box::new(|_| {}));
         let result = panic::catch_unwind(f);

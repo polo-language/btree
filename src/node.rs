@@ -14,8 +14,9 @@ pub struct Node<K, V> {
 }
 
 impl<K, V> Node<K, V>
-    where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
-          V: PartialEq + Debug
+where
+    K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
+    V: PartialEq + Debug,
 {
     /// Creates a new root node.
     pub fn new_root(t: usize, leaf: bool) -> Node<K, V> {
@@ -23,8 +24,10 @@ impl<K, V> Node<K, V>
             t,
             k: Vec::with_capacity(t),
             v: Vec::with_capacity(t),
-            c: match leaf { true  => Vec::new(),
-                            false => Vec::with_capacity(t + 1), },
+            c: match leaf {
+                true => Vec::new(),
+                false => Vec::with_capacity(t + 1),
+            },
             leaf,
             root: true,
         }
@@ -40,7 +43,10 @@ impl<K, V> Node<K, V>
     pub fn set_root_child_and_split(new: &mut Node<K, V>, mut old: Node<K, V>) {
         assert!(new.root, "Illegal set of old root on non-root node.");
         assert_eq!(new.len(), 0, "New root not empty.");
-        assert!(old.is_full(), "Former root must be full in order to be split.");
+        assert!(
+            old.is_full(),
+            "Former root must be full in order to be split."
+        );
         old.root = false;
         new.c.push(old);
         // Note: old will be a leaf iff it was a leaf prior to being demoted from root.
@@ -53,7 +59,7 @@ impl<K, V> Node<K, V>
     pub fn search(&self, key: &K) -> Option<(&Node<K, V>, usize)> {
         debug!("Searching node {:?} for key {:?}", self, key);
         match self.k.binary_search(key) {
-            Ok(i)  => Some((&self, i)),
+            Ok(i) => Some((&self, i)),
             Err(i) => {
                 if self.leaf {
                     None
@@ -68,7 +74,7 @@ impl<K, V> Node<K, V>
     pub fn get(&self, key: &K) -> Option<&V> {
         match self.search(key) {
             Some((ref n, i)) => n.v.get(i),
-            None             => None,
+            None => None,
         }
     }
 
@@ -83,7 +89,7 @@ impl<K, V> Node<K, V>
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         assert!(!self.is_full());
         match self.k.binary_search(&key) {
-            Ok(i)  => Some(mem::replace(&mut self.v[i], value)),
+            Ok(i) => Some(mem::replace(&mut self.v[i], value)),
             Err(i) => {
                 if self.leaf {
                     self.k.insert(i, key);
@@ -100,7 +106,7 @@ impl<K, V> Node<K, V>
                     }
                     self.c[i].insert(key, value)
                 }
-            },
+            }
         }
     }
 
@@ -129,8 +135,10 @@ impl<K, V> Node<K, V>
     fn update_split_child(&mut self, i: usize) -> (Vec<K>, Vec<V>, Vec<Node<K, V>>, K, V) {
         let child = &mut self.c[i];
         assert!(child.is_full(), "Child to split must be full.");
-        let new_c = match child.leaf { true  => Vec::new(),
-                                       false => child.c.split_off(self.t), };
+        let new_c = match child.leaf {
+            true => Vec::new(),
+            false => child.c.split_off(self.t),
+        };
 
         let mut new_k = child.k.split_off(self.t - 1);
         let parent_k = new_k.remove(0);
@@ -147,19 +155,20 @@ impl<K, V> Node<K, V>
     /// rebalancing.
     pub fn delete(&mut self, key: &K) -> (Option<V>, Option<Node<K, V>>) {
         assert!(self.root, "Node::delete may only be called on a tree root.");
-        if self.len() == 1 && !self.leaf { // Root has 1 key and 2 children.
+        if self.len() == 1 && !self.leaf {
+            // Root has 1 key and 2 children.
             if self.k[0] == *key {
                 // Could alternately move min of self.c[1] instead of max of self.c[0].
                 let (mid_k, mid_v) = self.c[0].delete_extreme(true);
                 let right = self.c.remove(1);
                 let mut left = self.c.remove(0);
                 Node::merge(&mut left, (mid_k, mid_v), right);
-                return (Some(self.v.remove(0)), Some(left))
+                return (Some(self.v.remove(0)), Some(left));
             } else if self.c[0].len() < self.t && self.c[1].len() < self.t {
                 // Neither child will be able to take from the other.
                 self.merge_children(0);
                 let opt_v = self.c[0].delete_r(key);
-                return (opt_v, Some(self.c.remove(0)))
+                return (opt_v, Some(self.c.remove(0)));
             } // Else no special actions needed at root. Continue recursively.
         }
         (self.delete_r(key), None)
@@ -174,9 +183,11 @@ impl<K, V> Node<K, V>
     fn delete_r(&mut self, key: &K) -> Option<V> {
         if self.leaf {
             match self.k.binary_search(&key) {
-                Ok(i)  => { self.k.remove(i);
-                            Some(self.v.remove(i)) },
-                Err(_) =>   None,
+                Ok(i) => {
+                    self.k.remove(i);
+                    Some(self.v.remove(i))
+                }
+                Err(_) => None,
             }
         } else {
             match self.k.binary_search(&key) {
@@ -190,20 +201,20 @@ impl<K, V> Node<K, V>
                     } else if self.c[i + 1].len() >= self.t {
                         // Replace with the smallest key from the right child.
                         let (new_k, new_v) = self.c[i + 1].delete_extreme(false);
-                        self.k[i] =  new_k;
+                        self.k[i] = new_k;
                         Some(mem::replace(&mut self.v[i], new_v))
                     } else {
                         // Merge both children. Our length shortens by one.
                         self.merge_children(i);
                         self.c[i].delete_r(key)
                     }
-                },
+                }
                 Err(i) => {
                     // 0 <= i <= len
                     // key is in self.c[i] if we have it.
                     self.ensure_has_t_keys(i);
                     self.c[i].delete_r(key)
-                },
+                }
             }
         }
     }
@@ -259,7 +270,8 @@ impl<K, V> Node<K, V>
                 // Merge with a sibling.
                 if i < self.len() {
                     self.merge_children(i);
-                } else { // 0 < i since non-leafs aways have >=2 children
+                } else {
+                    // 0 < i since non-leafs aways have >=2 children
                     self.merge_children(i - 1);
                 }
             }
@@ -289,7 +301,9 @@ impl<K, V> Node<K, V>
     /// The folding operation `program` has access to the current depth at each node.
     /// Returns the final accumulator value, or the first error encountered.
     pub fn walk<F, A, E>(&self, program: &F, accumulator: A) -> Result<A, E>
-            where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
+    where
+        F: Fn(&Node<K, V>, u32, A) -> Result<A, E>,
+    {
         Node::walk_r(vec![self], program, accumulator, 0)
     }
 
@@ -297,11 +311,14 @@ impl<K, V> Node<K, V>
     /// The folding operation `program` has access to the current depth at each node.
     /// Returns the final accumulator value, or the first error encountered.
     fn walk_r<F, A, E>(
-            siblings: Vec<&Node<K, V>>,
-            program: &F,
-            mut accumulator: A,
-            height: u32
-    ) -> Result<A, E> where F: Fn(&Node<K, V>, u32, A) -> Result<A, E> {
+        siblings: Vec<&Node<K, V>>,
+        program: &F,
+        mut accumulator: A,
+        height: u32,
+    ) -> Result<A, E>
+    where
+        F: Fn(&Node<K, V>, u32, A) -> Result<A, E>,
+    {
         let mut children = Vec::new();
         for sister in siblings {
             if !sister.leaf {
@@ -310,7 +327,7 @@ impl<K, V> Node<K, V>
             }
             match program(sister, height, accumulator) {
                 Ok(new_acc) => accumulator = new_acc,
-                err         => return err,
+                err => return err,
             }
         }
         if !children.is_empty() {
@@ -329,10 +346,10 @@ impl<K, V> Node<K, V>
     /// Recursively prints `sibling` nodes, appending their children, then recursively print all
     /// children (as the next row of siblings).
     fn print_recursive<'a>(
-            mut siblings: Vec<&'a Node<K, V>>,
-            mut children: Vec<&'a Node<K, V>>,
-            mut so_far: u32,
-            max_nodes: u32
+        mut siblings: Vec<&'a Node<K, V>>,
+        mut children: Vec<&'a Node<K, V>>,
+        mut so_far: u32,
+        max_nodes: u32,
     ) {
         if let Some(me) = siblings.pop() {
             if so_far < max_nodes {
@@ -358,19 +375,33 @@ impl<K, V> Node<K, V>
 }
 
 impl<K, V> fmt::Debug for Node<K, V>
-    where K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
-          V: PartialEq + Debug
+where
+    K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
+    V: PartialEq + Debug,
 {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            if self.len() == 0 {
-                write!(f, "({}/{} empty{}{})", self.t, self.len(),
-                        if self.leaf { " leaf" } else { "" }, if self.root { " ROOT" } else { "" })
-            } else {
-                write!(f, "({}/{} [{:?}..={:?}]{}{})", self.t, self.len(), self.k[0],
-                        self.k[self.len() - 1], if self.leaf { " leaf" } else { "" },
-                        if self.root { " ROOT" } else { "" })
-            }
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if self.len() == 0 {
+            write!(
+                f,
+                "({}/{} empty{}{})",
+                self.t,
+                self.len(),
+                if self.leaf { " leaf" } else { "" },
+                if self.root { " ROOT" } else { "" }
+            )
+        } else {
+            write!(
+                f,
+                "({}/{} [{:?}..={:?}]{}{})",
+                self.t,
+                self.len(),
+                self.k[0],
+                self.k[self.len() - 1],
+                if self.leaf { " leaf" } else { "" },
+                if self.root { " ROOT" } else { "" }
+            )
         }
+    }
 }
 
 #[cfg(test)]
@@ -378,9 +409,9 @@ mod tests {
     extern crate rand;
 
     use super::*;
-    use ::BTree;
-    use std::collections::HashSet;
     use node::tests::rand::distributions::{Distribution, Uniform};
+    use std::collections::HashSet;
+    use BTree;
 
     /// The maximum size random tree to allow in tests
     const MAX_TREE_SIZE: u32 = 1_000_000_000;
@@ -389,8 +420,10 @@ mod tests {
     /// keys, with values equal to the keys' string values.
     fn tree_t_n(t: usize, n: u32) -> BTree<u32, String> {
         if n > (0.8 * MAX_TREE_SIZE as f64) as u32 {
-            panic!("Choose a tree size smaller than {}.",
-                    (0.8 * MAX_TREE_SIZE as f64) as u32);
+            panic!(
+                "Choose a tree size smaller than {}.",
+                (0.8 * MAX_TREE_SIZE as f64) as u32
+            );
         }
         let between = Uniform::new(0, MAX_TREE_SIZE);
         let mut rng = rand::thread_rng();
@@ -427,7 +460,7 @@ mod tests {
         let count_roots = |n: &Node<u32, String>, _: u32, a: u32| -> Result<u32, ()> {
             Ok(a + if n.root { 1 } else { 0 })
         };
-        
+
         let mut root = Node::<u32, String>::new_root(10, false);
         let root2 = Node::<u32, String>::new_root(10, true);
         assert!(root.root);
@@ -444,13 +477,13 @@ mod tests {
 
     #[test]
     fn all_leaves_same_height() {
-        let record_height = |n: &Node<u32, String>, h: u32, mut a: HashSet<u32>|
-                -> Result<HashSet<u32>, ()> {
-            if n.leaf {
-                a.insert(h);
-            }
-            Ok(a)
-        };
+        let record_height =
+            |n: &Node<u32, String>, h: u32, mut a: HashSet<u32>| -> Result<HashSet<u32>, ()> {
+                if n.leaf {
+                    a.insert(h);
+                }
+                Ok(a)
+            };
 
         let mut root = Node::<u32, String>::new_root(10, false);
         let mut l1 = Node::<u32, String>::new_root(10, false);
@@ -463,19 +496,47 @@ mod tests {
         root.c.push(r1);
         assert_eq!(root.walk(&record_height, HashSet::new()).unwrap().len(), 2);
 
-        assert_eq!(tree_t_n(2, 0).walk(&record_height, HashSet::new()).unwrap().len(), 1);
-        assert_eq!(tree_t_n(2, 200).walk(&record_height, HashSet::new()).unwrap().len(), 1);
-        assert_eq!(tree_t_n(3, 5).walk(&record_height, HashSet::new()).unwrap().len(), 1);
-        assert_eq!(tree_t_n(2, 100000).walk(&record_height, HashSet::new()).unwrap().len(), 1);
-        assert_eq!(tree_t_n(1001, 100000).walk(&record_height, HashSet::new()).unwrap().len(), 1);
+        assert_eq!(
+            tree_t_n(2, 0)
+                .walk(&record_height, HashSet::new())
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            tree_t_n(2, 200)
+                .walk(&record_height, HashSet::new())
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            tree_t_n(3, 5)
+                .walk(&record_height, HashSet::new())
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            tree_t_n(2, 100000)
+                .walk(&record_height, HashSet::new())
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            tree_t_n(1001, 100000)
+                .walk(&record_height, HashSet::new())
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     /// Test that the key count invariants `t - 1 <= n <= 2*t - 1` always hold.
     #[test]
     fn key_counts() {
-        let key_count = |node: &Node<u32, String>, _: u32, _: bool|
-                -> Result<bool, usize>
-        {
+        let key_count = |node: &Node<u32, String>, _: u32, _: bool| -> Result<bool, usize> {
             let length = node.len();
             if !node.root && (length < node.t - 1 || 2 * node.t - 1 < length) {
                 Err(length)
@@ -495,21 +556,22 @@ mod tests {
     /// internal nodes and that leaf nodes never contain children.
     #[test]
     fn child_counts() {
-        let child_count = |node: &Node<u32, String>, _: u32, _: bool|
-                -> Result<bool, String>
-        {
+        let child_count = |node: &Node<u32, String>, _: u32, _: bool| -> Result<bool, String> {
             if node.leaf {
                 if node.c.len() > 0 {
-                    return Err(format!("Leaf {:?} has {} children.",
-                            node, node.c.len()))
+                    return Err(format!("Leaf {:?} has {} children.", node, node.c.len()));
                 }
             } else if node.c.len() != node.k.len() + 1 {
-                return Err(format!("Non-leaf {:?} has {} children and {} keys.",
-                        node, node.c.len(), node.k.len()))
+                return Err(format!(
+                    "Non-leaf {:?} has {} children and {} keys.",
+                    node,
+                    node.c.len(),
+                    node.k.len()
+                ));
             }
             Ok(true)
         };
-        
+
         let mut root = Node::<u32, String>::new_root(10, true);
         let root2 = Node::<u32, String>::new_root(10, true);
         root.c.push(root2);
