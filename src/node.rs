@@ -231,7 +231,7 @@ impl<K, V> Node<K, V>
         if self.c[i].len() < self.t {
             if i > 0 && self.c[i - 1].len() >= self.t {
                 // Take from the left sibling.
-                let child_k = self.c[i - 0].k.pop().unwrap();
+                let child_k = self.c[i - 1].k.pop().unwrap();
                 let k = mem::replace(&mut self.k[i], child_k);
                 self.c[i].k.insert(0, k);
                 let child_v = self.c[i - 1].v.pop().unwrap();
@@ -343,7 +343,7 @@ impl<K, V> Node<K, V>
                     children.append(&mut c_refs);
                 }
                 if siblings.is_empty() {
-                    print!("\n");
+                    println!();
                     children.reverse();
                     Node::print_recursive(children, Vec::new(), so_far, max_nodes);
                 } else {
