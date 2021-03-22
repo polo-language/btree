@@ -15,8 +15,7 @@ pub struct Node<K, V> {
 
 impl<K, V> Node<K, V>
 where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
-    V: PartialEq + Debug,
+    K: Ord,
 {
     /// Creates a new root node.
     pub fn new_root(t: usize, leaf: bool) -> Node<K, V> {
@@ -57,7 +56,6 @@ where
     /// tuple of the node continaing the key and the index at which to retrieve
     /// the mapping.
     pub fn search(&self, key: &K) -> Option<(&Node<K, V>, usize)> {
-        debug!("Searching node {:?} for key {:?}", self, key);
         match self.k.binary_search(key) {
             Ok(i) => Some((&self, i)),
             Err(i) => {
@@ -94,7 +92,6 @@ where
                 if self.leaf {
                     self.k.insert(i, key);
                     self.v.insert(i, value);
-                    debug!("Inserted {:?} into {:?}", key, self);
                     None
                 } else {
                     let mut i = i;
@@ -114,7 +111,6 @@ where
     fn split_child(&mut self, i: usize) {
         assert!(!self.leaf, "Cannot split child of a leaf");
         assert!(!self.is_full(), "Can not split child of full parent.");
-        debug!("Splitting child {:?} of parent {:?}.", self.c[i], self);
 
         let (new_k, new_v, new_c, parent_k, parent_v) = self.update_split_child(i);
         let new_child = Node {
@@ -337,7 +333,12 @@ where
             Ok(accumulator)
         }
     }
+}
 
+impl<K, V> Node<K, V>
+where
+    K: Ord + Debug
+{
     /// Print up to `max_nodes` of the subree rooted at `node`, by level order traversal.
     pub fn print_subtree(node: &Node<K, V>, max_nodes: u32) {
         Node::print_recursive(vec![&node], Vec::new(), 0, max_nodes);
@@ -376,8 +377,7 @@ where
 
 impl<K, V> fmt::Debug for Node<K, V>
 where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
-    V: PartialEq + Debug,
+    K: Ord + Debug
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if self.len() == 0 {
@@ -395,8 +395,8 @@ where
                 "({}/{} [{:?}..={:?}]{}{})",
                 self.t,
                 self.len(),
-                self.k[0],
-                self.k[self.len() - 1],
+                &self.k[0],
+                &self.k[self.len() - 1],
                 if self.leaf { " leaf" } else { "" },
                 if self.root { " ROOT" } else { "" }
             )

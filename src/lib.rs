@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate log;
-
 pub mod node;
 
 use self::node::Node;
@@ -24,8 +21,7 @@ pub struct BTree<K, V> {
 
 impl<K, V> BTree<K, V>
 where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Copy + Debug,
-    V: PartialEq + Debug,
+    K: Ord,
 {
     /// Creates a new `BTree` of order `t`.
     pub fn new(t: usize) -> BTree<K, V> {
@@ -66,7 +62,6 @@ where
     /// Returns the previous value if the tree contained a mapping for `key`, `None` otherwise.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         if self.root.is_full() {
-            debug!("Splitting root.");
             let new_root = Node::new_root(self.t, false);
             let old_root = mem::replace(&mut self.root, new_root);
             Node::set_root_child_and_split(&mut self.root, old_root);
@@ -104,12 +99,6 @@ where
         *self = BTree::new(self.t);
     }
 
-    /// Print up to `max_nodes` of the tree, by level order traversal.
-    pub fn print(&self, max_nodes: u32) {
-        println!("t: {}, n: {}, d: {}", self.t, self.n, self.d);
-        Node::print_subtree(&self.root, max_nodes);
-    }
-
     /// Walks the tree by level order traversal.
     /// The folding operation `program` has access to the current depth at each node.
     /// Returns the final accumulator value, or the first error encountered.
@@ -118,6 +107,17 @@ where
         F: Fn(&Node<K, V>, u32, A) -> Result<A, E>,
     {
         self.root.walk(program, accumulator)
+    }
+}
+
+impl<K, V> BTree<K, V>
+where
+    K: Ord + Debug
+{
+    /// Print up to `max_nodes` of the tree, by level order traversal.
+    pub fn print(&self, max_nodes: u32) {
+        println!("t: {}, n: {}, d: {}", self.t, self.n, self.d);
+        Node::print_subtree(&self.root, max_nodes);
     }
 }
 
