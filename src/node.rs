@@ -1,3 +1,5 @@
+use crate::iter::Iter;
+
 use std::fmt;
 use std::fmt::Debug;
 use std::mem;
@@ -34,8 +36,35 @@ where
 
     /// The number of key-value pairs located on this node
     /// For all non-root nodes the following holds: `t - 1 <= len <= 2*t - 1`
-    fn len(&self) -> usize {
+    /// For a non-leaf node, this is one less than the number of children.
+    pub fn len(&self) -> usize {
         self.k.len()
+    }
+
+    /// Whether the node is empty. This is only possible at the root.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Whether this node is a leaf.
+    pub fn is_leaf(&self) -> bool {
+        self.leaf
+    }
+
+    pub fn entry(&self, i: usize) -> Option<(&K, &V)> {
+        if i < self.k.len() {
+            Some((self.k.get(i).unwrap(), self.v.get(i).unwrap()))
+        } else {
+            None
+        }
+    }
+
+    pub fn child(&self, i: usize) -> Option<&Node<K, V>> {
+        self.c.get(i)
+    }
+
+    pub fn iter(&self) -> Iter<'_, K, V> {
+        Iter::new(self)
     }
 
     /// Sets `old` as the sole child of `new` and then splits `old`.

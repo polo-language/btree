@@ -1,6 +1,8 @@
 pub mod node;
+pub mod iter;
 
 use self::node::Node;
+use self::iter::Iter;
 
 use std::fmt::Debug;
 use std::mem;
@@ -97,6 +99,11 @@ where
     /// Removes all mappings.
     pub fn clear(&mut self) {
         *self = BTree::new(self.t);
+    }
+
+    /// Returns an iterator over entries in the BTree in ascending order
+    pub fn iter(&self) -> Iter<K, V> {
+        self.root.iter()
     }
 
     /// Walks the tree by level order traversal.
