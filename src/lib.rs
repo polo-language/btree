@@ -6,6 +6,9 @@ use self::iter::Iter;
 
 use std::fmt::Debug;
 use std::mem;
+use std::iter::FromIterator;
+
+const DEFAULT_T: usize = 64;
 
 /// B-tree data structure. Stores key-value pairs in a self-balancing tree.
 /// Provides the usual map operations.
@@ -114,6 +117,34 @@ where
         F: Fn(&Node<K, V>, u32, A) -> Result<A, E>,
     {
         self.root.walk(program, accumulator)
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a BTree<K, V>
+where
+    K: Ord
+{
+    type Item = (&'a K, &'a V);
+    type IntoIter = Iter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<K, V> FromIterator<(K, V)> for BTree<K, V>
+where
+    K: Ord,
+{
+    fn from_iter<T>(iter: T) -> Self
+    where
+        T: IntoIterator<Item = (K, V)>
+    {
+        let mut tree = BTree::<K, V>::new(DEFAULT_T);
+        for (k, v) in iter {
+            tree.insert(k, v);
+        }
+        tree
     }
 }
 
